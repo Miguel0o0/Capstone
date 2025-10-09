@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+  <h1>Bienvenido</h1>
+  {% if user.is_authenticated %}
+    <p>Hola, {{ user.username }}.</p>
+  {% else %}
+    <p>Inicia sesión para acceder al panel.</p>
+  {% endif %}
+{% endblock %}
