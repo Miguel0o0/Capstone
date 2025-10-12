@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 User = get_user_model()
 
@@ -46,3 +47,21 @@ class Household(models.Model):
     def __str__(self):
         # algo legible en admin/listas
         return f"{self.direccion} {self.numero}".strip()
+    
+class Announcement(models.Model):
+    titulo = models.CharField(max_length=200)
+    cuerpo = models.TextField()
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="announcements"
+    )
+    visible_hasta = models.DateField(null=True, blank=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creado_en"]
+
+    def __str__(self):
+        return self.titulo
