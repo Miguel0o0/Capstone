@@ -10,6 +10,7 @@
     <a href="{% url 'core:home' %}">Inicio</a>
     {% if user.is_authenticated %}
       <a href="{% url 'core:dashboard' %}">Panel</a>
+      <a href="{% url 'core:meeting_list' %}">Reuniones</a>
       <form action="{% url 'logout' %}" method="post" style="display:inline">{% csrf_token %}
         <button type="submit">Salir</button>
       </form>

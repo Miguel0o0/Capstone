@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Reuniones{% endblock %}
+{% block content %}
+<h1>Reuniones</h1>
+<ul>
+  {% for r in reuniones %}
+    <li>
+      <a href="{% url 'core:meeting_detail' r.pk %}">
+        {{ r.fecha|date:"Y-m-d H:i" }} — {{ r.tema }} ({{ r.lugar }})
+      </a>
+    </li>
+  {% empty %}
+    <li>No hay reuniones.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

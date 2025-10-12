@@ -65,3 +65,25 @@ class Announcement(models.Model):
 
     def __str__(self):
         return self.titulo
+    
+class Meeting(models.Model):
+    fecha = models.DateTimeField()
+    lugar = models.CharField(max_length=200)
+    tema = models.CharField(max_length=200)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-fecha"]
+
+    def __str__(self):
+        # Ej.: "Reunión 2025-10-12 19:00 — Sede vecinal"
+        return f"Reunión {self.fecha:%Y-%m-%d %H:%M} — {self.lugar}"
+
+class Minutes(models.Model):
+    meeting = models.OneToOneField(Meeting, on_delete=models.CASCADE, related_name="minutes")
+    texto = models.TextField()
+    archivo = models.FileField(upload_to="actas/", blank=True, null=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Acta de {self.meeting.fecha:%Y-%m-%d}"

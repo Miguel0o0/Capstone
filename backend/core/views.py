@@ -4,7 +4,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy
 from django.utils.timezone import now
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from .models import Announcement
+from .models import Announcement, Meeting, Minutes
 from django.db.models import Q
 
 # Create your views here.
@@ -68,3 +68,62 @@ class AnnouncementDeleteView(LoginRequiredMixin, IsAdminOrSecretaryMixin, Delete
     model = Announcement
     template_name = "core/announcement_confirm_delete.html"
     success_url = reverse_lazy("core:announcement_list")
+    
+# Permiso: Admin o Secretario
+class IsAdminOrSecretaryMixin(UserPassesTestMixin):
+    def test_func(self):
+        u = self.request.user
+        return u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+
+# --- MEETINGS ---
+class MeetingListView(LoginRequiredMixin, ListView):
+    model = Meeting
+    template_name = "core/meeting_list.html"
+    context_object_name = "reuniones"
+
+class MeetingDetailView(LoginRequiredMixin, DetailView):
+    model = Meeting
+    template_name = "core/meeting_detail.html"
+    context_object_name = "reunion"
+
+# (Opcional CRUD)
+class MeetingCreateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, CreateView):
+    model = Meeting
+    fields = ["fecha", "lugar", "tema"]
+    template_name = "core/meeting_form.html"
+    success_url = reverse_lazy("core:meeting_list")
+
+class MeetingUpdateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, UpdateView):
+    model = Meeting
+    fields = ["fecha", "lugar", "tema"]
+    template_name = "core/meeting_form.html"
+    success_url = reverse_lazy("core:meeting_list")
+
+class MeetingDeleteView(LoginRequiredMixin, IsAdminOrSecretaryMixin, DeleteView):
+    model = Meeting
+    template_name = "core/meeting_confirm_delete.html"
+    success_url = reverse_lazy("core:meeting_list")
+
+# --- MINUTES (Acta) ---
+class MinutesDetailView(LoginRequiredMixin, DetailView):
+    model = Minutes
+    template_name = "core/minutes_detail.html"
+    context_object_name = "acta"
+
+# (Opcional CRUD de actas)
+class MinutesCreateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, CreateView):
+    model = Minutes
+    fields = ["meeting", "texto", "archivo"]
+    template_name = "core/minutes_form.html"
+    success_url = reverse_lazy("core:meeting_list")
+
+class MinutesUpdateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, UpdateView):
+    model = Minutes
+    fields = ["meeting", "texto", "archivo"]
+    template_name = "core/minutes_form.html"
+    success_url = reverse_lazy("core:meeting_list")
+
+class MinutesDeleteView(LoginRequiredMixin, IsAdminOrSecretaryMixin, DeleteView):
+    model = Minutes
+    template_name = "core/minutes_confirm_delete.html"
+    success_url = reverse_lazy("core:meeting_list")
