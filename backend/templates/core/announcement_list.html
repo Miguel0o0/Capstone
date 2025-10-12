@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Avisos</h1>
+
+{% if user.is_superuser or user.groups.all.0.name in "Admin Secretario" %}
+  <p><a href="{% url 'core:announcement_create' %}">Nuevo aviso</a></p>
+{% endif %}
+
+<ul>
+  {% for a in avisos %}
+    <li>
+      <a href="{% url 'core:announcement_detail' a.pk %}">{{ a.titulo }}</a>
+      <small> — {{ a.creado_en|date:"Y-m-d H:i" }}</small>
+      {% if a.visible_hasta %}<small> (visible hasta {{ a.visible_hasta }})</small>{% endif %}
+    </li>
+  {% empty %}
+    <li>No hay avisos.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

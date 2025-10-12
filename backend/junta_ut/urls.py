@@ -21,6 +21,6 @@ from core import views as core_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path("", include("core.urls")),
+    path("", include(("core.urls", "core"), namespace="core")),
     path("accounts/", include("django.contrib.auth.urls")),
 ]

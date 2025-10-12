@@ -7,9 +7,9 @@
 </head>
 <body>
   <nav>
-    <a href="{% url 'home' %}">Inicio</a>
+    <a href="{% url 'core:home' %}">Inicio</a>
     {% if user.is_authenticated %}
-      <a href="{% url 'dashboard' %}">Panel</a>
+      <a href="{% url 'core:dashboard' %}">Panel</a>
       <form action="{% url 'logout' %}" method="post" style="display:inline">{% csrf_token %}
         <button type="submit">Salir</button>
       </form>
