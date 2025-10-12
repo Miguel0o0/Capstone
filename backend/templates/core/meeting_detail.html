@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Reunión{% endblock %}
+{% block content %}
+<h1>{{ reunion.tema }}</h1>
+<p><b>Fecha:</b> {{ reunion.fecha|date:"Y-m-d H:i" }}</p>
+<p><b>Lugar:</b> {{ reunion.lugar }}</p>
+
+{% if reunion.minutes %}
+  <p><a href="{% url 'core:minutes_detail' reunion.minutes.pk %}">Ver acta</a></p>
+{% else %}
+  <p><i>Sin acta disponible.</i></p>
+{% endif %}
+
+<p><a href="{% url 'core:meeting_list' %}">&larr; Volver</a></p>
+{% endblock %}
