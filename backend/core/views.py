@@ -69,11 +69,12 @@ class AnnouncementDeleteView(LoginRequiredMixin, IsAdminOrSecretaryMixin, Delete
     template_name = "core/announcement_confirm_delete.html"
     success_url = reverse_lazy("core:announcement_list")
     
-# Permiso: Admin o Secretario
-class IsAdminOrSecretaryMixin(UserPassesTestMixin):
+class AdminOrSecretaryRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         u = self.request.user
-        return u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        return u.is_authenticated and (
+            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        )
 
 # --- MEETINGS ---
 class MeetingListView(LoginRequiredMixin, ListView):

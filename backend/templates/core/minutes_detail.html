@@ -5,7 +5,9 @@
 <pre style="white-space:pre-wrap">{{ acta.texto }}</pre>
 
 {% if acta.archivo %}
-  <p><a href="{{ acta.archivo.url }}" target="_blank">Descargar archivo</a></p>
+  <a href="{{ acta.archivo.url }}" download>Descargar archivo</a>
+{% else %}
+  <em>No hay archivo adjunto.</em>
 {% endif %}
 
 <p><a href="{% url 'core:meeting_detail' acta.meeting.pk %}">&larr; Volver a la reunión</a></p>
