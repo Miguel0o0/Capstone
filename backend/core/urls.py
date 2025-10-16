@@ -21,4 +21,11 @@ urlpatterns = [
     path("actas/nueva/", views.MinutesCreateView.as_view(), name="minutes_create"),
     path("actas/<int:pk>/editar/", views.MinutesUpdateView.as_view(), name="minutes_update"),
     path("actas/<int:pk>/eliminar/", views.MinutesDeleteView.as_view(), name="minutes_delete"),
+    path("fees/", views.FeeListView.as_view(), name="fee_list"),
+    path("fees/nueva/", views.FeeCreateView.as_view(), name="fee_create"),
+    path("fees/<int:pk>/editar/", views.FeeUpdateView.as_view(), name="fee_update"),
+    path("pagos/admin/", views.PaymentListAdminView.as_view(), name="payment_list_admin"),
+    path("mis-pagos/", views.MyPaymentsView.as_view(), name="my_payments"),
+    path("pagos/nuevo/", views.PaymentCreateForResidentView.as_view(), name="payment_create"),
+    path("pagos/<int:pk>/editar/", views.PaymentUpdateAdminView.as_view(), name="payment_update_admin"),
 ]

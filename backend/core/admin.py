@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Resident, Household, Announcement, Meeting, Minutes
+from .models import Resident, Household, Announcement, Meeting, Minutes, Fee, Payment
 
 @admin.register(Resident)
 class ResidentAdmin(admin.ModelAdmin):
@@ -28,3 +28,16 @@ class MeetingAdmin(admin.ModelAdmin):
 class MinutesAdmin(admin.ModelAdmin):
     list_display = ("meeting", "creado_en")
     search_fields = ("meeting__tema",)
+
+@admin.register(Fee)
+class FeeAdmin(admin.ModelAdmin):
+    list_display = ("period", "amount")
+    search_fields = ("period",)
+    ordering = ("-period",)
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = ("resident", "fee", "amount", "status", "paid_at", "created_at")
+    list_filter = ("status", ("fee", admin.RelatedOnlyFieldListFilter))
+    search_fields = ("resident__username", "resident__first_name", "resident__last_name", "fee__period")
+    autocomplete_fields = ("resident", "fee")
