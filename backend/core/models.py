@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.conf import settings
+from django.db.models import Q, UniqueConstraint
 
 User = get_user_model()
 
@@ -87,3 +88,66 @@ class Minutes(models.Model):
 
     def __str__(self):
         return f"Acta de {self.meeting.fecha:%Y-%m-%d}"
+    
+# Constantes de estado (a nivel de módulo):
+STATUS_PENDING = "pending"
+STATUS_PAID = "paid"
+STATUS_CHOICES = [
+    (STATUS_PENDING, "Pendiente"),
+    (STATUS_PAID, "Pagado"),
+]
+
+class Fee(models.Model):
+    # ← añade este campo
+    period = models.CharField(
+        "Periodo (YYYY-MM)",
+        max_length=7,
+        unique=True,
+        help_text="Ej: 2025-10",
+    )
+
+    amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
+
+    class Meta:
+        ordering = ["-period"]  # ahora sí existe
+
+    def __str__(self):
+        return f"Cuota {self.period} (${self.amount})"
+
+class Payment(models.Model):
+    # --- constantes y choices ---
+    STATUS_PENDING = "pending"
+    STATUS_PAID = "paid"
+
+    STATUS_CHOICES = (
+        (STATUS_PENDING, "Pendiente"),
+        (STATUS_PAID, "Pagado"),
+    )
+
+    # --- campos ---
+    resident = models.ForeignKey(settings.AUTH_USER_MODEL,
+                                 on_delete=models.CASCADE,
+                                 related_name="payments",
+                                 verbose_name="Vecino")
+    fee = models.ForeignKey(Fee, on_delete=models.CASCADE, related_name="payments")
+    amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES,
+                              default=STATUS_PENDING)
+    paid_at = models.DateTimeField("Fecha de pago", blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["resident", "fee"],
+                condition=Q(status=STATUS_PAID),
+                name="uniq_paid_per_resident_fee",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.resident} → {self.fee.period} ({self.get_status_display()})"
+
+    def __str__(self):
+        return f"{self.resident} → {self.fee.period} ({self.get_status_display()})"

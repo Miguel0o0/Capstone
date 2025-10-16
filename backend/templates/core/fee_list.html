@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Cuotas</h1>
+<p><a href="{% url 'core:fee_create' %}">Nueva cuota</a></p>
+<ul>
+  {% for f in fees %}
+  <li>
+    {{ f.period }} — ${{ f.amount }}
+    (<a href="{% url 'core:fee_update' f.pk %}">Editar</a>)
+  </li>
+  {% empty %}
+  <li>No hay cuotas.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

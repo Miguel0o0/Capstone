@@ -11,9 +11,12 @@
   <a href="{% url 'core:home' %}">Inicio</a>
   <a href="{% url 'core:announcement_list' %}">Anuncios</a>
   <a href="{% url 'core:meeting_list' %}">Reuniones</a>
+  <a href="{% url 'core:my_payments' %}">Mis pagos</a>
 
   {% if user.is_authenticated %}
     {% if user.is_superuser or user|has_group:'Admin' or user|has_group:'Secretario' %}
+      <a href="{% url 'core:fee_list' %}">Cuotas</a>
+      <a href="{% url 'core:payment_list_admin' %}">Pagos (admin)</a>
       <a href="{% url 'core:dashboard' %}">Panel</a>
     {% endif %}
 
