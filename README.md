@@ -54,3 +54,32 @@ python -m venv .venv
   - Base: `main`, Compare: tu rama.
   - En la descripción incluye `Closes #N` (para cerrar el Issue automáticamente).
   - Pide *review* si aplica y haz *merge* cuando los checks pasen.
+
+## Configuración por entorno
+
+Usamos `python-dotenv` y un paquete de settings:
+
+- `junta_ut/settings/base.py` – configuración común
+- `junta_ut/settings/dev.py` – desarrollo (DEBUG=True)
+- `junta_ut/settings/prod.py` – producción (DEBUG=False)
+
+### Variables de entorno (.env)
+
+Crea un archivo `.env` en `backend/` tomando como base `.env.example`:
+
+- SECRET_KEY=...
+- DEBUG=1
+- ALLOWED_HOSTS=127.0.0.1,localhost
+
+
+> **Nota**: `.env` está en `.gitignore`.
+
+### Ejecutar en desarrollo
+
+```bash
+  python -m venv .venv
+  .venv\Scripts\Activate.ps1
+  pip install -r requirements.txt
+  python manage.py migrate
+  python manage.py runserver
+
