@@ -1,34 +1,17 @@
-<!doctype html>
 {% load auth_extras %}
+<!doctype html>
 <html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>{% block title %}Junta UT{% endblock %}</title>
-</head>
-<body>
-<nav>
-  <a href="{% url 'core:home' %}">Inicio</a>
-  <a href="{% url 'core:announcement_list' %}">Anuncios</a>
-  <a href="{% url 'core:meeting_list' %}">Reuniones</a>
-  <a href="{% url 'core:my_payments' %}">Mis pagos</a>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Junta UT{% endblock %}</title>
+  </head>
+  <body>
 
-  {% if user.is_authenticated %}
-    {% if user.is_superuser or user|has_group:'Admin' or user|has_group:'Secretario' %}
-      <a href="{% url 'core:fee_list' %}">Cuotas</a>
-      <a href="{% url 'core:payment_list_admin' %}">Pagos (admin)</a>
-      <a href="{% url 'core:dashboard' %}">Panel</a>
-    {% endif %}
+    {% include "partials/_nav.html" %}
 
-    <form action="{% url 'logout' %}" method="post" style="display:inline">
-      {% csrf_token %}
-      <button type="submit">Salir</button>
-    </form>
-  {% else %}
-    <a href="{% url 'login' %}">Entrar</a>
-  {% endif %}
-</nav>
-<hr/>
-  {% block content %}{% endblock %}
-</body>
+    {% block content %}
+    {% endblock %}
+
+  </body>
 </html>
