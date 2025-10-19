@@ -1,0 +1,77 @@
+{% load auth_extras %}
+
+<nav>
+  <div class="nav-left">
+    <a href="{% url 'core:home' %}">Inicio</a>
+
+    {% if user.is_authenticated %}
+      <!-- Vecino y todos los autenticados -->
+      <a href="{% url 'core:announcement_list' %}">Anuncios</a>
+      <a href="{% url 'core:meeting_list' %}">Reuniones</a>
+      <a href="{% url 'core:my_payments' %}">Mis pagos</a>
+
+      <!-- Solo Secretario, Admin o Superuser -->
+      {% if user.is_superuser or user|has_group:'Admin' or user|has_group:'Secretario' %}
+        <a href="{% url 'core:announcement_create' %}">Crear aviso</a>
+        <a href="{% url 'core:fee_list' %}">Cuotas</a>
+        <a href="{% url 'core:payment_list_admin' %}">Pagos</a>
+        <a href="{% url 'core:dashboard' %}">Panel</a>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <div class="nav-right">
+    {% if user.is_authenticated %}
+      <span class="username">Hola, {{ user.username }}</span>
+      <form action="{% url 'logout' %}" method="post" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="linklike">Salir</button>
+      </form>
+    {% else %}
+      <a href="{% url 'login' %}" class="login-link">Entrar</a>
+    {% endif %}
+  </div>
+</nav>
+
+<hr>
+
+<style>
+  nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 1rem;
+    border-bottom: 1px solid #ccc;
+    font-family: system-ui, sans-serif;
+  }
+  .nav-left a {
+    text-decoration: none;
+    color: #333;
+    margin-right: 0.6rem; /* ← más compacto que antes */
+  }
+  .nav-left a:hover {
+    text-decoration: underline;
+  }
+  .username {
+    margin-right: 0.4rem;
+    color: #444;
+  }
+  .linklike {
+    background: none;
+    border: none;
+    color: #0066cc;
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+  }
+  .linklike:hover {
+    text-decoration: underline;
+  }
+  .login-link {
+    color: #0066cc;
+    text-decoration: none;
+  }
+  .login-link:hover {
+    text-decoration: underline;
+  }
+</style>
