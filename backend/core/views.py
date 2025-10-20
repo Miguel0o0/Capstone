@@ -243,3 +243,5 @@ class PaymentUpdateAdminView(LoginRequiredMixin, UserPassesTestMixin, UpdateView
 
     def get_success_url(self):
         return reverse_lazy("core:payment_list_admin")
+    
+# Cambio para probar GitHub Actions
