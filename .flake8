@@ -1,6 +1,8 @@
 [flake8]
 max-line-length = 88
-extend-ignore = E203, W503, W391
+# Compatibilidad con Black + no pelear por líneas largas
+extend-ignore = E203, W503, W391, E501
+
 exclude =
     venv,
     .venv,
@@ -8,9 +10,10 @@ exclude =
     .github,
     */migrations/*
 
+# Rutas relativas a donde se ejecuta flake8 (en el CI se ve como junta_ut/... y core/...)
 per-file-ignores =
-    backend/junta_ut/settings/base.py: E501, F403, F405
-    backend/junta_ut/settings/dev.py:  E501, F403, F405, F401
-    backend/junta_ut/settings/prod.py: E501, F403, F405
-    backend/junta_ut/urls.py:          F401
-    backend/core/urls.py:              F401
+    junta_ut/settings/base.py:  F403, F405
+    junta_ut/settings/dev.py:   F401, F403, F405
+    junta_ut/settings/prod.py:  F403, F405
+    junta_ut/urls.py:           F401
+    core/urls.py:               F401
