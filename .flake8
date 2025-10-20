@@ -1,0 +1,16 @@
+[flake8]
+max-line-length = 88
+extend-ignore = E203, W503, W391
+exclude =
+    venv,
+    .venv,
+    .git,
+    .github,
+    */migrations/*
+
+per-file-ignores =
+    backend/junta_ut/settings/base.py: E501, F403, F405
+    backend/junta_ut/settings/dev.py:  E501, F403, F405, F401
+    backend/junta_ut/settings/prod.py: E501, F403, F405
+    backend/junta_ut/urls.py:          F401
+    backend/core/urls.py:              F401
