@@ -8,39 +8,104 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0005_meeting_minutes'),
+        ("core", "0005_meeting_minutes"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Fee',
+            name="Fee",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('period', models.CharField(help_text='Ej: 2025-10', max_length=7, unique=True, verbose_name='Periodo (YYYY-MM)')),
-                ('amount', models.DecimalField(decimal_places=2, max_digits=9, verbose_name='Monto')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "period",
+                    models.CharField(
+                        help_text="Ej: 2025-10",
+                        max_length=7,
+                        unique=True,
+                        verbose_name="Periodo (YYYY-MM)",
+                    ),
+                ),
+                (
+                    "amount",
+                    models.DecimalField(
+                        decimal_places=2, max_digits=9, verbose_name="Monto"
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-period'],
+                "ordering": ["-period"],
             },
         ),
         migrations.CreateModel(
-            name='Payment',
+            name="Payment",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('amount', models.DecimalField(decimal_places=2, max_digits=9, verbose_name='Monto')),
-                ('status', models.CharField(choices=[('pending', 'Pendiente'), ('paid', 'Pagado')], default='pending', max_length=10)),
-                ('paid_at', models.DateTimeField(blank=True, null=True, verbose_name='Fecha de pago')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('fee', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='payments', to='core.fee')),
-                ('resident', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='payments', to=settings.AUTH_USER_MODEL, verbose_name='vecino')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "amount",
+                    models.DecimalField(
+                        decimal_places=2, max_digits=9, verbose_name="Monto"
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[("pending", "Pendiente"), ("paid", "Pagado")],
+                        default="pending",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "paid_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="Fecha de pago"
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "fee",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="payments",
+                        to="core.fee",
+                    ),
+                ),
+                (
+                    "resident",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="payments",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="vecino",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
         migrations.AddConstraint(
-            model_name='payment',
-            constraint=models.UniqueConstraint(condition=models.Q(('status', 'paid')), fields=('resident', 'fee'), name='uniq_paid_per_resident_fee'),
+            model_name="payment",
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("status", "paid")),
+                fields=("resident", "fee"),
+                name="uniq_paid_per_resident_fee",
+            ),
         ),
     ]

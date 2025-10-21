@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Resident, Household, Announcement, Meeting, Minutes, Fee, Payment
+
+from .models import Announcement, Fee, Household, Meeting, Minutes, Payment, Resident
 
 
 @admin.register(Resident)

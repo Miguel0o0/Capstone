@@ -1,18 +1,19 @@
-from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.db.models import Q
+from django.shortcuts import render
 from django.urls import reverse_lazy
 from django.utils.timezone import now
 from django.views.generic import (
-    ListView,
-    DetailView,
     CreateView,
-    UpdateView,
     DeleteView,
+    DetailView,
+    ListView,
+    UpdateView,
 )
-from .models import Announcement, Meeting, Minutes, Fee, Payment
-from django.db.models import Q
+
 from .forms import PaymentForm
+from .models import Announcement, Fee, Meeting, Minutes, Payment
 
 # Create your views here.
 

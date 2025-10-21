@@ -1,0 +1,66 @@
+# Ejecuta:  pre-commit install
+# Opcional: pre-commit run --all-files
+default_stages: [commit]
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        name: black (py)
+        types: [python]
+        additional_dependencies: []
+        # Usa la versión de Python del entorno activo
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: isort (py)
+        types: [python]
+        args: ["--profile=black"]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.0
+    hooks:
+      - id: flake8
+        name: flake8 (py)
+        types: [python]
+        args:
+          - --max-line-length=88
+          - --extend-ignore=E203,W503
+          - >-
+            --per-file-ignores=
+            backend/junta_ut/settings/dev.py:F403,F405;
+            backend/junta_ut/settings/prod.py:F403,F405;
+            backend/junta_ut/settings/__init__.py:F401
+        additional_dependencies: []
+
+
+# Evita revisar binarios/entornos/plantillas estáticas
+exclude: |
+  (?x)^(
+    \.venv/|
+    venv/|
+    env/|
+    .*\.pyc$|
+    .*__pycache__/|
+    media/|
+    docs/_build/|
+    db\.sqlite3|
+    backend/static/|
+    backend/templates/
+  )

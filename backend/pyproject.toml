@@ -10,3 +10,8 @@ exclude = '''
   | migrations
 )/
 '''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+src_paths = ["backend"]

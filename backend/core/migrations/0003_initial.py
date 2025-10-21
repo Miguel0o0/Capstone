@@ -10,34 +10,64 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('core', '0002_create_groups'),
+        ("core", "0002_create_groups"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Resident',
+            name="Resident",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('nombre', models.CharField(max_length=120)),
-                ('email', models.EmailField(blank=True, max_length=254, null=True)),
-                ('telefono', models.CharField(blank=True, max_length=30)),
-                ('direccion', models.CharField(blank=True, max_length=200)),
-                ('activo', models.BooleanField(default=True)),
-                ('user', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='resident_profile', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("nombre", models.CharField(max_length=120)),
+                ("email", models.EmailField(blank=True, max_length=254, null=True)),
+                ("telefono", models.CharField(blank=True, max_length=30)),
+                ("direccion", models.CharField(blank=True, max_length=200)),
+                ("activo", models.BooleanField(default=True)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="resident_profile",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['nombre'],
+                "ordering": ["nombre"],
             },
         ),
         migrations.CreateModel(
-            name='Household',
+            name="Household",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('direccion', models.CharField(max_length=200)),
-                ('numero', models.CharField(blank=True, max_length=20)),
-                ('referencia', models.CharField(blank=True, max_length=200)),
-                ('residents', models.ManyToManyField(blank=True, related_name='households', to='core.resident')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("direccion", models.CharField(max_length=200)),
+                ("numero", models.CharField(blank=True, max_length=20)),
+                ("referencia", models.CharField(blank=True, max_length=200)),
+                (
+                    "residents",
+                    models.ManyToManyField(
+                        blank=True, related_name="households", to="core.resident"
+                    ),
+                ),
             ],
         ),
     ]

@@ -15,7 +15,7 @@ Ejemplos:
 - `fix/core-dashboard-500`
 - `docs/readme-contributing`
 
-## 2. Commits 
+## 2. Commits
 
 Tipos comunes: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.
 
@@ -67,4 +67,3 @@ python manage.py runserver
 - Si el PR **no cierra** el issue: revisa que pusiste `Closes #N` en la **descripción** (no en un comentario).
 - Si no ves la rama en GitHub Desktop: **Fetch origin** y vuelve a abrir el selector de ramas.
 - Usa extensión **.md** y deja `README.md` y `CONTRIBUTING.md` en la **raíz** del repo.
-
