@@ -1,3 +1,2 @@
-from django.test import TestCase
-
-# Create your tests here.
+# Archivo de pruebas del módulo core
+# (actualmente vacío, pendiente de agregar tests)
