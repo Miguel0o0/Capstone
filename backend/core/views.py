@@ -193,7 +193,7 @@ class FeeUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         )
 
 
-# ------- PAYMENTS -------
+# ------- PAYMENTS ---------
 
 
 class PaymentListAdminView(LoginRequiredMixin, UserPassesTestMixin, ListView):
