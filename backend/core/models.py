@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.conf import settings
-from django.db.models import Q, UniqueConstraint
+from django.db.models import Q
 
 User = get_user_model()
 
@@ -109,7 +109,6 @@ STATUS_CHOICES = [
 
 
 class Fee(models.Model):
-    # ← añade este campo
     period = models.CharField(
         "Periodo (YYYY-MM)",
         max_length=7,
@@ -120,14 +119,13 @@ class Fee(models.Model):
     amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
 
     class Meta:
-        ordering = ["-period"]  # ahora sí existe
+        ordering = ["-period"]
 
     def __str__(self):
         return f"Cuota {self.period} (${self.amount})"
 
 
 class Payment(models.Model):
-    # --- constantes y choices ---
     STATUS_PENDING = "pending"
     STATUS_PAID = "paid"
 
@@ -136,7 +134,6 @@ class Payment(models.Model):
         (STATUS_PAID, "Pagado"),
     )
 
-    # --- campos ---
     resident = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -160,9 +157,6 @@ class Payment(models.Model):
                 name="uniq_paid_per_resident_fee",
             )
         ]
-
-    def __str__(self):
-        return f"{self.resident} → {self.fee.period} ({self.get_status_display()})"
 
     def __str__(self):
         return f"{self.resident} → {self.fee.period} ({self.get_status_display()})"
