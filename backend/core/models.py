@@ -1,15 +1,17 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.conf import settings
-from django.db.models import Q, UniqueConstraint
+from django.db.models import Q
 
 User = get_user_model()
+
 
 class Resident(models.Model):
     """
     Perfil extendido del usuario (opcional).
     Si no hay User (anónimo / aún sin cuenta), igual podemos registrar al residente.
     """
+
     user = models.OneToOneField(
         User,
         blank=True,
@@ -34,6 +36,7 @@ class Household(models.Model):
     """
     Vivienda/Unidad. Puede tener varios residentes (comparten hogar).
     """
+
     direccion = models.CharField(max_length=200)
     numero = models.CharField(max_length=20, blank=True)
     referencia = models.CharField(max_length=200, blank=True)
@@ -48,15 +51,17 @@ class Household(models.Model):
     def __str__(self):
         # algo legible en admin/listas
         return f"{self.direccion} {self.numero}".strip()
-    
+
+
 class Announcement(models.Model):
     titulo = models.CharField(max_length=200)
     cuerpo = models.TextField()
     creado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name="announcements"
+        null=True,
+        blank=True,
+        related_name="announcements",
     )
     visible_hasta = models.DateField(null=True, blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
@@ -66,7 +71,8 @@ class Announcement(models.Model):
 
     def __str__(self):
         return self.titulo
-    
+
+
 class Meeting(models.Model):
     fecha = models.DateTimeField()
     lugar = models.CharField(max_length=200)
@@ -80,15 +86,19 @@ class Meeting(models.Model):
         # Ej.: "Reunión 2025-10-12 19:00 — Sede vecinal"
         return f"Reunión {self.fecha:%Y-%m-%d %H:%M} — {self.lugar}"
 
+
 class Minutes(models.Model):
-    meeting = models.OneToOneField(Meeting, on_delete=models.CASCADE, related_name="minutes")
+    meeting = models.OneToOneField(
+        Meeting, on_delete=models.CASCADE, related_name="minutes"
+    )
     texto = models.TextField()
     archivo = models.FileField(upload_to="actas/", blank=True, null=True)
     creado_en = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Acta de {self.meeting.fecha:%Y-%m-%d}"
-    
+
+
 # Constantes de estado (a nivel de módulo):
 STATUS_PENDING = "pending"
 STATUS_PAID = "paid"
@@ -96,6 +106,7 @@ STATUS_CHOICES = [
     (STATUS_PENDING, "Pendiente"),
     (STATUS_PAID, "Pagado"),
 ]
+
 
 class Fee(models.Model):
     # ← añade este campo
@@ -114,6 +125,7 @@ class Fee(models.Model):
     def __str__(self):
         return f"Cuota {self.period} (${self.amount})"
 
+
 class Payment(models.Model):
     # --- constantes y choices ---
     STATUS_PENDING = "pending"
@@ -125,14 +137,17 @@ class Payment(models.Model):
     )
 
     # --- campos ---
-    resident = models.ForeignKey(settings.AUTH_USER_MODEL,
-                                 on_delete=models.CASCADE,
-                                 related_name="payments",
-                                 verbose_name="Vecino")
+    resident = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="payments",
+        verbose_name="Vecino",
+    )
     fee = models.ForeignKey(Fee, on_delete=models.CASCADE, related_name="payments")
     amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES,
-                              default=STATUS_PENDING)
+    status = models.CharField(
+        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
     paid_at = models.DateTimeField("Fecha de pago", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -145,9 +160,6 @@ class Payment(models.Model):
                 name="uniq_paid_per_resident_fee",
             )
         ]
-
-    def __str__(self):
-        return f"{self.resident} → {self.fee.period} ({self.get_status_display()})"
 
     def __str__(self):
         return f"{self.resident} → {self.fee.period} ({self.get_status_display()})"
