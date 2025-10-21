@@ -1,6 +1,6 @@
 from django import forms
-from django.utils.timezone import now
 from .models import Payment, Fee
+
 
 class PaymentForm(forms.ModelForm):
     class Meta:
@@ -9,7 +9,7 @@ class PaymentForm(forms.ModelForm):
         widgets = {
             "paid_at": forms.DateInput(attrs={"type": "date"}),
         }
-        
+
         labels = {
             "resident": "Vecino",
             "fee": "Cuota",
@@ -29,9 +29,10 @@ class PaymentForm(forms.ModelForm):
         # y limitamos 'status' solo a "Pendiente".
         if self.request:
             u = self.request.user
-            is_admin = u.is_superuser or u.groups.filter(
-                name__in=["Admin", "Secretario"]
-            ).exists()
+            is_admin = (
+                u.is_superuser
+                or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+            )
 
             if not is_admin:
                 # vecino: no puede elegir otro residente

@@ -1,6 +1,5 @@
 # backend/junta_ut/settings/dev.py
 from .base import *
-import os
 
 DEBUG = True
 if not ALLOWED_HOSTS:
