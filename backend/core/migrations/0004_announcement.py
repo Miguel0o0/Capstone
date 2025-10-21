@@ -8,23 +8,40 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0003_initial'),
+        ("core", "0003_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Announcement',
+            name="Announcement",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('titulo', models.CharField(max_length=200)),
-                ('cuerpo', models.TextField()),
-                ('visible_hasta', models.DateField(blank=True, null=True)),
-                ('creado_en', models.DateTimeField(auto_now_add=True)),
-                ('creado_por', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='announcements', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("titulo", models.CharField(max_length=200)),
+                ("cuerpo", models.TextField()),
+                ("visible_hasta", models.DateField(blank=True, null=True)),
+                ("creado_en", models.DateTimeField(auto_now_add=True)),
+                (
+                    "creado_por",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="announcements",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-creado_en'],
+                "ordering": ["-creado_en"],
             },
         ),
     ]
