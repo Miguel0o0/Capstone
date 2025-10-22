@@ -91,3 +91,7 @@ Este repo usa **pre-commit** con `black`, `isort` y `flake8`.
 ```bash
 pip install -r requirements.txt  # o pip install pre-commit black isort flake8
 pre-commit install
+
+## Documentación
+
+- [Diagrama rápido del modelo](./docs/modelo.md)
