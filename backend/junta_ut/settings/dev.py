@@ -7,3 +7,5 @@ if not ALLOWED_HOSTS:  # noqa: F405
 
 # Opcional: correo en consola, etc.
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+DEFAULT_FROM_EMAIL = "no-reply@localhost"
