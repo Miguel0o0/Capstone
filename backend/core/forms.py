@@ -1,5 +1,6 @@
 from django import forms
-from .models import Payment, Fee
+
+from .models import Fee, Payment
 
 
 class PaymentForm(forms.ModelForm):

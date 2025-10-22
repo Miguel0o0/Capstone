@@ -7,31 +7,57 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0004_announcement'),
+        ("core", "0004_announcement"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Meeting',
+            name="Meeting",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('fecha', models.DateTimeField()),
-                ('lugar', models.CharField(max_length=200)),
-                ('tema', models.CharField(max_length=200)),
-                ('creado_en', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("fecha", models.DateTimeField()),
+                ("lugar", models.CharField(max_length=200)),
+                ("tema", models.CharField(max_length=200)),
+                ("creado_en", models.DateTimeField(auto_now_add=True)),
             ],
             options={
-                'ordering': ['-fecha'],
+                "ordering": ["-fecha"],
             },
         ),
         migrations.CreateModel(
-            name='Minutes',
+            name="Minutes",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('texto', models.TextField()),
-                ('archivo', models.FileField(blank=True, null=True, upload_to='actas/')),
-                ('creado_en', models.DateTimeField(auto_now_add=True)),
-                ('meeting', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='minutes', to='core.meeting')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("texto", models.TextField()),
+                (
+                    "archivo",
+                    models.FileField(blank=True, null=True, upload_to="actas/"),
+                ),
+                ("creado_en", models.DateTimeField(auto_now_add=True)),
+                (
+                    "meeting",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="minutes",
+                        to="core.meeting",
+                    ),
+                ),
             ],
         ),
     ]

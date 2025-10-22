@@ -83,3 +83,11 @@ Crea un archivo `.env` en `backend/` tomando como base `.env.example`:
   python manage.py migrate
   python manage.py runserver
 
+## Estilo y calidad de código
+
+Este repo usa **pre-commit** con `black`, `isort` y `flake8`.
+
+### Primer uso
+```bash
+pip install -r requirements.txt  # o pip install pre-commit black isort flake8
+pre-commit install

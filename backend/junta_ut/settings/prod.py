@@ -1,7 +1,9 @@
 # backend/junta_ut/settings/prod.py
-from .base import *
 import os
+
 from django.core.exceptions import ImproperlyConfigured
+
+from .base import *  # noqa: F403,F401
 
 DEBUG = False
 
@@ -10,9 +12,8 @@ if os.getenv("SECRET_KEY") in (None, "", "dev-insecure-key"):
     raise ImproperlyConfigured("SECRET_KEY debe definirse en .env para producción")
 
 # Define tus hosts de despliegue
-if not ALLOWED_HOSTS:
-    # Ejemplo: "mi-dominio.com, www.mi-dominio.com"
-    ALLOWED_HOSTS = []
+# Ejemplo: "mi-dominio.com, www.mi-dominio.com"
+ALLOWED_HOSTS = []  # noqa: F405
 
 # (Opcional) endurecer seguridad:
 SECURE_BROWSER_XSS_FILTER = True
