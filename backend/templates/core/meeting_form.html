@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Nueva reunión</h1>
+<h1>{% if object %}Editar{% else %}Nueva{% endif %} reunión</h1>
 
 <form method="post">
   {% csrf_token %}

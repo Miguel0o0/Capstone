@@ -7,11 +7,11 @@
 
 <small>
   Publicado: {{ aviso.creado_en|date:"Y-m-d H:i" }}<br>
-  {% if aviso.visible_hasta %} Visible hasta: {{ aviso.visible_hasta }}{% endif %}<br>
-  {% if aviso.creado_por %} Por: {{ aviso.creado_por.username }}{% endif %}
+  {% if aviso.visible_hasta %}Visible hasta: {{ aviso.visible_hasta }}{% endif %}<br>
+  {% if aviso.creado_por %}Por: {{ aviso.creado_por.username }}{% endif %}
 </small>
 
-{# Solo admin/secretario/superuser ven Editar/Eliminar #}
+{# Botones solo para Admin/Secretario/Superuser #}
 {% if user.is_authenticated %}
   {% if user.is_superuser or user|has_group:"Admin" or user|has_group:"Secretario" %}
     <p>
@@ -21,5 +21,5 @@
   {% endif %}
 {% endif %}
 
-<p><a href="{% url 'core:announcement_list' %}">← Volver</a></p>
+<p><a href="{% url 'core:announcement_list' %}">&larr; Volver</a></p>
 {% endblock %}

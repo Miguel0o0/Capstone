@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% load auth_extras %}
+
+{% block title %}Acta{% endblock %}
+
+{% block content %}
+<h1>{% if object %}Editar{% else %}Nueva{% endif %} acta</h1>
+
+<form method="post" enctype="multipart/form-data">
+  {% csrf_token %}
+  {{ form.as_p }}
+
+  <button type="submit" class="btn btn-primary">Guardar</button>
+  <a class="btn" href="{% url 'core:meeting_list' %}">Cancelar</a>
+</form>
+{% endblock %}

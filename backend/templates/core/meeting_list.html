@@ -5,8 +5,8 @@
 <h1>Reuniones</h1>
 
 {% if user.is_authenticated %}
-  {% if user.is_superuser or user|has_group:'Admin' or user|has_group:'Secretario' %}
-    <p><a href="{% url 'core:meeting_create' %}">Nueva reunión</a></p>
+  {% if user.is_superuser or user|has_group:"Admin" or user|has_group:"Secretario" %}
+    <p><a class="btn btn-primary" href="{% url 'core:meeting_create' %}">Nueva reunión</a></p>
   {% endif %}
 {% endif %}
 
@@ -14,7 +14,7 @@
   <ul>
     {% for r in reuniones %}
       <li>
-        <a href="{% url 'core:meeting_detail' pk=r.pk %}">
+        <a href="{% url 'core:meeting_detail' r.pk %}">
           {{ r.fecha|date:"Y-m-d H:i" }} — {{ r.tema }} ({{ r.lugar }})
         </a>
       </li>

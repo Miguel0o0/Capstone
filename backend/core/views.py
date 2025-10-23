@@ -1,4 +1,4 @@
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.db.models import Q
 from django.shortcuts import render
@@ -15,19 +15,51 @@ from django.views.generic import (
 from .forms import PaymentForm
 from .models import Announcement, Fee, Meeting, Minutes, Payment
 
-# Create your views here.
+
+# ----------------------------
+# Helpers de permisos / roles
+# ----------------------------
+def is_admin_or_secretary(user):
+    return user.is_authenticated and (
+        user.is_superuser
+        or user.groups.filter(name__in=["Admin", "Secretario"]).exists()
+    )
 
 
+class IsAdminOrSecretaryMixin(UserPassesTestMixin):
+    """
+    Mixin reutilizable para vistas que requieren Admin o Secretario.
+    - Si no pasa el test devuelve 403 Forbidden (no redirige al login).
+    """
+
+    raise_exception = True
+
+    def test_func(self):
+        u = self.request.user
+        if not u.is_authenticated:
+            return False
+        return (
+            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        )
+
+
+# ----------------------------
+# Vistas base
+# ----------------------------
 def home(request):
     return render(request, "home.html")
 
 
 @login_required
+@user_passes_test(is_admin_or_secretary)
 def dashboard(request):
     return render(request, "dashboard.html")
 
 
-# --- Lectura (todos los autenticados) ---
+# ----------------------------
+# Anuncios
+# ----------------------------
+# Lectura (todos los autenticados)
 class AnnouncementListView(LoginRequiredMixin, ListView):
     model = Announcement
     template_name = "core/announcement_list.html"
@@ -46,19 +78,7 @@ class AnnouncementDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "aviso"
 
 
-# --- Helpers de permisos para CRUD ---
-class IsAdminOrSecretaryMixin(UserPassesTestMixin):
-    def test_func(self):
-        u = self.request.user
-        if not u.is_authenticated:
-            return False
-        # Permite superuser, o miembros de grupos Admin/Secretario
-        return (
-            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
-        )
-
-
-# --- CRUD (solo Admin/Secretario) ---
+# CRUD (solo Admin/Secretario)
 class AnnouncementCreateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, CreateView):
     model = Announcement
     fields = ["titulo", "cuerpo", "visible_hasta"]
@@ -83,15 +103,9 @@ class AnnouncementDeleteView(LoginRequiredMixin, IsAdminOrSecretaryMixin, Delete
     success_url = reverse_lazy("core:announcement_list")
 
 
-class AdminOrSecretaryRequiredMixin(UserPassesTestMixin):
-    def test_func(self):
-        u = self.request.user
-        return u.is_authenticated and (
-            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
-        )
-
-
-# --- MEETINGS ---
+# ----------------------------
+# Reuniones (Meetings)
+# ----------------------------
 class MeetingListView(LoginRequiredMixin, ListView):
     model = Meeting
     template_name = "core/meeting_list.html"
@@ -104,7 +118,7 @@ class MeetingDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "reunion"
 
 
-# (Opcional CRUD)
+# CRUD (solo Admin/Secretario)
 class MeetingCreateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, CreateView):
     model = Meeting
     fields = ["fecha", "lugar", "tema"]
@@ -125,14 +139,16 @@ class MeetingDeleteView(LoginRequiredMixin, IsAdminOrSecretaryMixin, DeleteView)
     success_url = reverse_lazy("core:meeting_list")
 
 
-# --- MINUTES (Acta) ---
+# ----------------------------
+# Actas (Minutes)
+# ----------------------------
 class MinutesDetailView(LoginRequiredMixin, DetailView):
     model = Minutes
     template_name = "core/minutes_detail.html"
     context_object_name = "acta"
 
 
-# (Opcional CRUD de actas)
+# CRUD (solo Admin/Secretario)
 class MinutesCreateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, CreateView):
     model = Minutes
     fields = ["meeting", "texto", "archivo"]
@@ -153,60 +169,36 @@ class MinutesDeleteView(LoginRequiredMixin, IsAdminOrSecretaryMixin, DeleteView)
     success_url = reverse_lazy("core:meeting_list")
 
 
-# ------- FEES (solo admin/secretario) -------
-
-
-class FeeListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+# ----------------------------
+# Cuotas (Fees) - solo Admin/Secretario
+# ----------------------------
+class FeeListView(LoginRequiredMixin, IsAdminOrSecretaryMixin, ListView):
     model = Fee
     template_name = "core/fee_list.html"
     context_object_name = "fees"
 
-    def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
-        )
 
-
-class FeeCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+class FeeCreateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, CreateView):
     model = Fee
     fields = ("period", "amount")
     template_name = "core/fee_form.html"
     success_url = reverse_lazy("core:fee_list")
 
-    def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
-        )
 
-
-class FeeUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+class FeeUpdateView(LoginRequiredMixin, IsAdminOrSecretaryMixin, UpdateView):
     model = Fee
     fields = ("period", "amount")
     template_name = "core/fee_form.html"
     success_url = reverse_lazy("core:fee_list")
 
-    def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
-        )
 
-
-# ------- PAYMENTS ---------
-
-
-class PaymentListAdminView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+# ----------------------------
+# Pagos (Payments)
+# ----------------------------
+class PaymentListAdminView(LoginRequiredMixin, IsAdminOrSecretaryMixin, ListView):
     model = Payment
     template_name = "core/payment_list_admin.html"
     context_object_name = "payments"
-
-    def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
-        )
 
     def get_queryset(self):
         qs = (
@@ -244,7 +236,7 @@ class PaymentCreateForResidentView(LoginRequiredMixin, CreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["request"] = self.request  # <- IMPORTANTE
+        kwargs["request"] = self.request  # <- IMPORTANTE: el form usa 'request'
         return kwargs
 
     def form_valid(self, form):
@@ -264,22 +256,14 @@ class PaymentCreateForResidentView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class PaymentUpdateAdminView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+class PaymentUpdateAdminView(LoginRequiredMixin, IsAdminOrSecretaryMixin, UpdateView):
     model = Payment
     form_class = PaymentForm
     template_name = "core/payment_form.html"
 
-    def test_func(self):
-        u = self.request.user
-        return (
-            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
-        )
-
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["request"] = (
-            self.request
-        )  # <- por coherencia (aunque admin verá todas las opciones)
+        kwargs["request"] = self.request  # coherencia con el create
         return kwargs
 
     def get_success_url(self):

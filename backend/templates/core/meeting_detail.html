@@ -1,14 +1,29 @@
 {% extends "base.html" %}
+{% load auth_extras %}
+
 {% block title %}Reunión{% endblock %}
+
 {% block content %}
 <h1>{{ reunion.tema }}</h1>
 <p><b>Fecha:</b> {{ reunion.fecha|date:"Y-m-d H:i" }}</p>
 <p><b>Lugar:</b> {{ reunion.lugar }}</p>
 
+{# Acciones para Admin/Secretario/Superuser #}
+{% if user.is_authenticated and (user.is_superuser or user|has_group:"Admin" or user|has_group:"Secretario") %}
+  <p>
+    <a href="{% url 'core:meeting_update' reunion.pk %}">Editar</a> |
+    <a href="{% url 'core:meeting_delete' reunion.pk %}">Eliminar</a>
+  </p>
+{% endif %}
+
+{# Acta vinculada (Minutes) #}
 {% if reunion.minutes %}
   <p><a href="{% url 'core:minutes_detail' reunion.minutes.pk %}">Ver acta</a></p>
 {% else %}
   <p><i>Sin acta disponible.</i></p>
+  {% if user.is_authenticated and (user.is_superuser or user|has_group:"Admin" or user|has_group:"Secretario") %}
+    <p><a href="{% url 'core:minutes_create' %}?meeting={{ reunion.pk }}">Crear acta</a></p>
+  {% endif %}
 {% endif %}
 
 <p><a href="{% url 'core:meeting_list' %}">&larr; Volver</a></p>

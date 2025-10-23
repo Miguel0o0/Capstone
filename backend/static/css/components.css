@@ -1,0 +1,82 @@
+.btn {
+  display:inline-flex; align-items:center; justify-content:center;
+  gap:.5rem; font-weight:600;
+  padding:.55rem .9rem; border-radius: .6rem;
+  border:1px solid transparent; cursor:pointer;
+  transition: transform .02s ease, box-shadow .2s ease;
+}
+.btn:active { transform: translateY(1px); }
+.btn-primary{
+  background: var(--color-primary);
+  color: #fff;
+}
+.btn-primary:hover{ background: var(--color-primary-600); }
+.btn-outline{
+  background:#fff; border-color: #d1d5db; color: var(--color-text);
+}
+.btn-danger{ background: var(--color-danger); color:#fff; }
+
+.input, .select, .textarea{
+  width:100%; padding:.6rem .75rem;
+  border:1px solid #d1d5db; border-radius:.6rem; background:#fff;
+}
+.input:focus, .select:focus, .textarea:focus{
+  outline:none; border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(29,78,216,.15);
+}
+
+.table {
+  width:100%; border-collapse: collapse; background:#fff; border-radius: .6rem; overflow: hidden;
+}
+.table th, .table td { padding:.7rem .9rem; border-bottom:1px solid #e5e7eb; }
+.table th { text-align:left; color: var(--color-muted); font-weight:700; background:#f3f4f6; }
+.table tr:hover td { background:#f9fafb; }
+
+/* --- NAVBAR layout --- */
+.navbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: .75rem 0;
+}
+
+/* Marca */
+.navbar .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  text-decoration: none;
+  color: #1f2937; /* gris oscuro */
+  font-weight: 600;
+}
+.navbar .brand img {
+  height: 22px;
+}
+
+/* Menú centrado y en línea */
+.navbar .nav-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;   /* sin viñetas */
+  margin: 0 auto;     /* centra el menú entre logo y botón */
+  padding: 0;
+}
+
+.navbar .nav-links a {
+  text-decoration: none;
+  color: #1a56db;     /* azul */
+  font-weight: 600;
+}
+.navbar .nav-links a:hover { text-decoration: underline; }
+
+/* Acciones (cerrar sesión) alineadas a la derecha */
+.navbar .nav-actions { margin-left: 0; }
+.navbar .nav-actions .btn {
+  padding: .5rem .9rem;
+  border-radius: .5rem;
+}
+
+/* Responsive básico: reduce el espacio en pantallas pequeñas */
+@media (max-width: 768px) {
+  .navbar .nav-links { gap: 14px; }
+}

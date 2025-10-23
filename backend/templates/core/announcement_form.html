@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+
 {% block content %}
 <h1>{% if object %}Editar{% else %}Nuevo{% endif %} aviso</h1>
+
 <form method="post">
   {% csrf_token %}
   {{ form.as_p }}
-  <button type="submit">Guardar</button>
-  <a href="{% url 'core:announcement_list' %}">Cancelar</a>
+
+  <button type="submit" class="btn btn-primary">Guardar</button>
+  <a class="btn" href="{% url 'core:announcement_list' %}">Cancelar</a>
 </form>
 {% endblock %}
