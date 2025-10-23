@@ -20,9 +20,9 @@ from .models import Announcement, Fee, Meeting, Minutes, Payment
 # Helpers de permisos / roles
 # ----------------------------
 def is_admin_or_secretary(user):
-    """Devuelve True si el usuario es superuser o está en los grupos Admin/Secretario."""
     return user.is_authenticated and (
-        user.is_superuser or user.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        user.is_superuser
+        or user.groups.filter(name__in=["Admin", "Secretario"]).exists()
     )
 
 
@@ -31,13 +31,16 @@ class IsAdminOrSecretaryMixin(UserPassesTestMixin):
     Mixin reutilizable para vistas que requieren Admin o Secretario.
     - Si no pasa el test devuelve 403 Forbidden (no redirige al login).
     """
+
     raise_exception = True
 
     def test_func(self):
         u = self.request.user
         if not u.is_authenticated:
             return False
-        return u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        return (
+            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        )
 
 
 # ----------------------------
@@ -212,6 +215,7 @@ class PaymentListAdminView(LoginRequiredMixin, IsAdminOrSecretaryMixin, ListView
 
 class MyPaymentsView(LoginRequiredMixin, ListView):
     """Vista 'Mis pagos' (solo ve los suyos)."""
+
     model = Payment
     template_name = "core/payment_list_mine.html"
     context_object_name = "payments"
@@ -243,7 +247,9 @@ class PaymentCreateForResidentView(LoginRequiredMixin, CreateView):
 
         # Si es vecino, asegurar que quede "Pendiente"
         u = self.request.user
-        is_admin = u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        is_admin = (
+            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        )
         if not is_admin:
             form.instance.status = Payment.STATUS_PENDING
 
