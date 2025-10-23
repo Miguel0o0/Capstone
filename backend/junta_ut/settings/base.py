@@ -140,3 +140,16 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Static files
+STATIC_URL = "/static/"
+
+# En dev usamos una carpeta local de estáticos (no confundir con STATIC_ROOT)
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+# Para producción más adelante usaremos STATIC_ROOT y WhiteNoise (otro issue)
