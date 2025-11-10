@@ -85,7 +85,10 @@ class Migration(migrations.Migration):
                     "asignada_a",
                     models.ForeignKey(
                         blank=True,
-                        help_text="(Opcional) Miembro del staff que gestionará la incidencia",
+                        help_text=(
+                            "(Opcional) Miembro del staff que gestionará la "
+                            "incidencia"
+                        ),
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
                         related_name="incidencias_asignadas",
@@ -117,10 +120,12 @@ class Migration(migrations.Migration):
                 "ordering": ["-created_at"],
                 "indexes": [
                     models.Index(
-                        fields=["status"], name="core_incide_status_cb96ff_idx"
+                        fields=["status"],
+                        name="core_incide_status_cb96ff_idx",
                     ),
                     models.Index(
-                        fields=["created_at"], name="core_incide_created_f536cb_idx"
+                        fields=["created_at"],
+                        name="core_incide_created_f536cb_idx",
                     ),
                 ],
             },

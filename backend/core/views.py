@@ -497,7 +497,8 @@ class PresidentResidentToggleActiveView(
             vecino.save(update_fields=["activo"])
             messages.success(
                 request,
-                f"Vecino «{vecino.nombre}» {'activado' if vecino.activo else 'desactivado'} correctamente.",
+                f"Vecino «{vecino.nombre}» "
+                f"{'activado' if vecino.activo else 'desactivado'} correctamente.",
             )
         except Exception:
             messages.error(
@@ -712,7 +713,9 @@ class ReservationListAdminView(
 
     def get_queryset(self):
         qs = Reservation.objects.all().select_related(
-            "resource", "requested_by", "approved_by"
+            "resource",
+            "requested_by",
+            "approved_by",
         )
         estado = self.request.GET.get("estado")
         recurso = self.request.GET.get("recurso")
