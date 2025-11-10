@@ -1,17 +1,16 @@
 # backend/core/views.py
+import os
+
 from django.contrib import messages
-from django.contrib.auth.decorators import (
-    login_required,
-    permission_required,
-)
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
-    UserPassesTestMixin,
     PermissionRequiredMixin,
+    UserPassesTestMixin,
 )
 from django.db.models import Q
 from django.http import FileResponse, Http404
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.timezone import now
 from django.views.generic import (
@@ -22,31 +21,39 @@ from django.views.generic import (
     UpdateView,
     View,
 )
-import os
 
-from .forms import PaymentForm, DocumentForm,IncidentForm,IncidentManageForm,ReservationForm, ReservationManageForm
+from .forms import (
+    DocumentForm,
+    IncidentForm,
+    IncidentManageForm,
+    PaymentForm,
+    ReservationForm,
+    ReservationManageForm,
+)
 from .models import (
     Announcement,
+    Document,
+    DocumentCategory,
     Fee,
+    Incident,
+    IncidentCategory,
     Meeting,
     Minutes,
     Payment,
+    Reservation,
     Resident,
-    Document,
-    DocumentCategory,
-    Incident, 
-    IncidentCategory,
-    Reservation, 
-    Resource
+    Resource,
 )
 
 # ------------------------------------------------
 # Menú dinámico (nav_items)
 # ------------------------------------------------
 
+
 def has_any_perm(user, perms):
     """True si el usuario tiene al menos uno de los permisos dados."""
     return any(user.has_perm(p) for p in perms)
+
 
 def build_nav_items(request):
     """Construye la lista de ítems del menú según el usuario/permiso."""
@@ -71,24 +78,34 @@ def build_nav_items(request):
             items.append({"label": "Cuotas", "url": reverse("core:fee_list")})
 
         if u.has_perm("core.view_payment"):
-            items.append({"label": "Pagos (admin)", "url": reverse("core:payment_list_admin")})
+            items.append(
+                {"label": "Pagos (admin)", "url": reverse("core:payment_list_admin")}
+            )
 
         # Acceso directo a subir documento (la vista valida permisos con mixin)
-        items.append({"label": "Subir documento", "url": reverse("core:documents-create")})
+        items.append(
+            {"label": "Subir documento", "url": reverse("core:documents-create")}
+        )
 
     # Presidencia (ver vecinos). No implica change_resident.
     if (u.is_superuser or u.groups.filter(name="Presidente").exists()) and u.has_perm(
         "core.view_resident"
     ):
-        items.append({"label": "Presidencia", "url": reverse("core:president_residents")})
+        items.append(
+            {"label": "Presidencia", "url": reverse("core:president_residents")}
+        )
 
     # Incidencias
     if u.has_perm("core.view_incident"):
-        items.append({"label": "Incidencias (admin)", "url": reverse("core:incident_admin")})
+        items.append(
+            {"label": "Incidencias (admin)", "url": reverse("core:incident_admin")}
+        )
 
-    #Reserva
+    # Reserva
     if u.has_perm("core.view_reservation"):
-        items.append({"label": "Reservas (admin)", "url": reverse("core:reservation_admin")})
+        items.append(
+            {"label": "Reservas (admin)", "url": reverse("core:reservation_admin")}
+        )
 
     return items
 
@@ -105,27 +122,37 @@ class NavItemsMixin:
 # ------------------------------------------------
 def is_admin_or_secretary(user):
     return user.is_authenticated and (
-        user.is_superuser or user.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        user.is_superuser
+        or user.groups.filter(name__in=["Admin", "Secretario"]).exists()
     )
+
 
 class IsAdminOrSecretaryMixin(UserPassesTestMixin):
     raise_exception = True
+
     def test_func(self):
         u = self.request.user
         if not u.is_authenticated:
             return False
-        return u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        return (
+            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        )
+
 
 # NUEVO: incluye Presidente como usuario de gestión
 def is_management_user(user):
     return user.is_authenticated and (
-        user.is_superuser or user.groups.filter(name__in=["Admin", "Secretario", "Presidente"]).exists()
+        user.is_superuser
+        or user.groups.filter(name__in=["Admin", "Secretario", "Presidente"]).exists()
     )
+
 
 class IsManagementMixin(UserPassesTestMixin):
     raise_exception = True
+
     def test_func(self):
         return is_management_user(self.request.user)
+
 
 class AnyPermRequiredMixin(PermissionRequiredMixin):
     def has_permission(self):
@@ -138,8 +165,16 @@ class AnyPermRequiredMixin(PermissionRequiredMixin):
 
 def allowed_visibility_for(user):
     """Visibilidades permitidas según el usuario."""
-    if user and (user.is_superuser or user.is_staff or user.groups.filter(name__in=["Admin", "Secretario"]).exists()):
-        return [Document.Visibility.PUBLICO, Document.Visibility.RESIDENTES, Document.Visibility.STAFF]
+    if user and (
+        user.is_superuser
+        or user.is_staff
+        or user.groups.filter(name__in=["Admin", "Secretario"]).exists()
+    ):
+        return [
+            Document.Visibility.PUBLICO,
+            Document.Visibility.RESIDENTES,
+            Document.Visibility.STAFF,
+        ]
     if user and user.is_authenticated:
         return [Document.Visibility.PUBLICO, Document.Visibility.RESIDENTES]
     return [Document.Visibility.PUBLICO]
@@ -178,7 +213,9 @@ class AnnouncementDetailView(NavItemsMixin, LoginRequiredMixin, DetailView):
     context_object_name = "aviso"
 
 
-class AnnouncementCreateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class AnnouncementCreateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView
+):
     permission_required = "core.add_announcement"
     model = Announcement
     fields = ["titulo", "cuerpo", "visible_hasta"]
@@ -190,7 +227,9 @@ class AnnouncementCreateView(NavItemsMixin, LoginRequiredMixin, PermissionRequir
         return super().form_valid(form)
 
 
-class AnnouncementUpdateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class AnnouncementUpdateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     permission_required = "core.change_announcement"
     model = Announcement
     fields = ["titulo", "cuerpo", "visible_hasta"]
@@ -198,7 +237,9 @@ class AnnouncementUpdateView(NavItemsMixin, LoginRequiredMixin, PermissionRequir
     success_url = reverse_lazy("core:announcement_list")
 
 
-class AnnouncementDeleteView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class AnnouncementDeleteView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, DeleteView
+):
     permission_required = "core.delete_announcement"
     model = Announcement
     template_name = "core/announcement_confirm_delete.html"
@@ -220,7 +261,9 @@ class MeetingDetailView(NavItemsMixin, LoginRequiredMixin, DetailView):
     context_object_name = "reunion"
 
 
-class MeetingCreateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class MeetingCreateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView
+):
     permission_required = "core.add_meeting"
     model = Meeting
     fields = ["fecha", "lugar", "tema"]
@@ -228,7 +271,9 @@ class MeetingCreateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMix
     success_url = reverse_lazy("core:meeting_list")
 
 
-class MeetingUpdateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class MeetingUpdateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     permission_required = "core.change_meeting"
     model = Meeting
     fields = ["fecha", "lugar", "tema"]
@@ -236,7 +281,9 @@ class MeetingUpdateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMix
     success_url = reverse_lazy("core:meeting_list")
 
 
-class MeetingDeleteView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class MeetingDeleteView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, DeleteView
+):
     permission_required = "core.delete_meeting"
     model = Meeting
     template_name = "core/meeting_confirm_delete.html"
@@ -252,7 +299,9 @@ class MinutesDetailView(NavItemsMixin, LoginRequiredMixin, DetailView):
     context_object_name = "acta"
 
 
-class MinutesCreateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class MinutesCreateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView
+):
     permission_required = "core.add_minutes"
     model = Minutes
     fields = ["meeting", "texto", "archivo"]
@@ -260,7 +309,9 @@ class MinutesCreateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMix
     success_url = reverse_lazy("core:meeting_list")
 
 
-class MinutesUpdateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class MinutesUpdateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     permission_required = "core.change_minutes"
     model = Minutes
     fields = ["meeting", "texto", "archivo"]
@@ -268,7 +319,9 @@ class MinutesUpdateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMix
     success_url = reverse_lazy("core:meeting_list")
 
 
-class MinutesDeleteView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+class MinutesDeleteView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, DeleteView
+):
     permission_required = "core.delete_minutes"
     model = Minutes
     template_name = "core/minutes_confirm_delete.html"
@@ -285,7 +338,9 @@ class FeeListView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, Li
     context_object_name = "fees"
 
 
-class FeeCreateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class FeeCreateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView
+):
     permission_required = "core.add_fee"
     model = Fee
     fields = ("period", "amount")
@@ -293,7 +348,9 @@ class FeeCreateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, 
     success_url = reverse_lazy("core:fee_list")
 
 
-class FeeUpdateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class FeeUpdateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     permission_required = "core.change_fee"
     model = Fee
     fields = ("period", "amount")
@@ -304,14 +361,21 @@ class FeeUpdateView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, 
 # ----------------------------
 # Pagos (Payments)
 # ----------------------------
-class PaymentListAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class PaymentListAdminView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView
+):
     permission_required = "core.view_payment"
     model = Payment
     template_name = "core/payment_list_admin.html"
     context_object_name = "payments"
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("resident", "fee").order_by("-created_at")
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("resident", "fee")
+            .order_by("-created_at")
+        )
         period = self.request.GET.get("period")
         if period:
             qs = qs.filter(fee__period=period)
@@ -346,13 +410,17 @@ class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, CreateView
         form.instance.resident = self.request.user
         form.instance.amount = form.cleaned_data["fee"].amount
         u = self.request.user
-        is_admin = u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        is_admin = (
+            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        )
         if not is_admin:
             form.instance.status = Payment.STATUS_PENDING
         return super().form_valid(form)
 
 
-class PaymentUpdateAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class PaymentUpdateAdminView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     permission_required = "core.change_payment"
     model = Payment
     form_class = PaymentForm
@@ -370,7 +438,9 @@ class PaymentUpdateAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequir
 # ------------------------------------------------
 # 👑 Presidencia — Gestión de vecinos
 # ------------------------------------------------
-class PresidentResidentsListView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class PresidentResidentsListView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView
+):
     permission_required = "core.view_resident"
     model = Resident
     template_name = "core/president_residents.html"
@@ -404,12 +474,16 @@ class PresidentResidentsListView(NavItemsMixin, LoginRequiredMixin, PermissionRe
         return is_president and super().has_permission()
 
 
-class PresidentResidentToggleActiveView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, View):
+class PresidentResidentToggleActiveView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, View
+):
     permission_required = "core.change_resident"
     raise_exception = True
 
     def handle_no_permission(self):
-        messages.error(self.request, "No tienes permiso para cambiar el estado de vecinos.")
+        messages.error(
+            self.request, "No tienes permiso para cambiar el estado de vecinos."
+        )
         return super().handle_no_permission()
 
     def post(self, request, pk):
@@ -423,10 +497,12 @@ class PresidentResidentToggleActiveView(NavItemsMixin, LoginRequiredMixin, Permi
             vecino.save(update_fields=["activo"])
             messages.success(
                 request,
-                f"Vecino «{vecino.nombre}» {'activado' if vecino.activo else 'desactivado'} correctamente."
+                f"Vecino «{vecino.nombre}» {'activado' if vecino.activo else 'desactivado'} correctamente.",
             )
         except Exception:
-            messages.error(request, "No se pudo actualizar el estado. Intenta nuevamente.")
+            messages.error(
+                request, "No se pudo actualizar el estado. Intenta nuevamente."
+            )
         return redirect("core:president_residents")
 
 
@@ -438,6 +514,7 @@ class DocumentListView(NavItemsMixin, ListView):
     Listado de documentos con búsqueda y filtro por categoría.
     Acceso público: si no está autenticado, solo ve PUBLICO.
     """
+
     model = Document
     template_name = "core/documents/list.html"
     context_object_name = "docs"
@@ -464,8 +541,11 @@ class DocumentListView(NavItemsMixin, ListView):
         return ctx
 
 
-class DocumentCreateView(NavItemsMixin, LoginRequiredMixin, IsManagementMixin, CreateView):
+class DocumentCreateView(
+    NavItemsMixin, LoginRequiredMixin, IsManagementMixin, CreateView
+):
     """Subir/crear documentos (Superuser/Admin/Secretario/Presidente)."""
+
     model = Document
     form_class = DocumentForm
     template_name = "core/documents/form.html"
@@ -495,6 +575,7 @@ def document_download_view(request, pk: int):
 
     return FileResponse(open(path, "rb"), as_attachment=True, filename=doc.filename)
 
+
 class IncidentListMineView(NavItemsMixin, LoginRequiredMixin, ListView):
     model = Incident
     template_name = "core/incidents/list_mine.html"
@@ -508,6 +589,7 @@ class IncidentListMineView(NavItemsMixin, LoginRequiredMixin, ListView):
             q = q.filter(status=estado)
         return q.select_related("categoria").order_by("-created_at")
 
+
 class IncidentCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
     model = Incident
     form_class = IncidentForm
@@ -518,7 +600,10 @@ class IncidentCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
         form.instance.reportado_por = self.request.user
         return super().form_valid(form)
 
-class IncidentListAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
+
+class IncidentListAdminView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView
+):
     permission_required = "core.view_incident"
     model = Incident
     template_name = "core/incidents/list_admin.html"
@@ -526,7 +611,9 @@ class IncidentListAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequire
     paginate_by = 15
 
     def get_queryset(self):
-        qs = Incident.objects.all().select_related("categoria", "reportado_por", "asignada_a")
+        qs = Incident.objects.all().select_related(
+            "categoria", "reportado_por", "asignada_a"
+        )
         estado = self.request.GET.get("estado")
         if estado in dict(Incident.Status.choices):
             qs = qs.filter(status=estado)
@@ -542,7 +629,10 @@ class IncidentListAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequire
         ctx["cat_selected"] = self.request.GET.get("cat", "")
         return ctx
 
-class IncidentManageView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+
+class IncidentManageView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     permission_required = "core.change_incident"
     model = Incident
     form_class = IncidentManageForm
@@ -559,7 +649,8 @@ class IncidentManageView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMi
 
     def get_success_url(self):
         return reverse_lazy("core:incident_admin")
-    
+
+
 class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
     model = Reservation
     template_name = "core/reservations/list_mine.html"
@@ -610,7 +701,9 @@ class ReservationCancelView(NavItemsMixin, LoginRequiredMixin, View):
         return redirect("core:reservation_mine")
 
 
-class ReservationListAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView):
+class ReservationListAdminView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, ListView
+):
     permission_required = "core.view_reservation"
     model = Reservation
     template_name = "core/reservations/list_admin.html"
@@ -618,7 +711,9 @@ class ReservationListAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequ
     paginate_by = 15
 
     def get_queryset(self):
-        qs = Reservation.objects.all().select_related("resource", "requested_by", "approved_by")
+        qs = Reservation.objects.all().select_related(
+            "resource", "requested_by", "approved_by"
+        )
         estado = self.request.GET.get("estado")
         recurso = self.request.GET.get("recurso")
         if estado in dict(Reservation.Status.choices):
@@ -635,7 +730,9 @@ class ReservationListAdminView(NavItemsMixin, LoginRequiredMixin, PermissionRequ
         return ctx
 
 
-class ReservationManageView(NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+class ReservationManageView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
     permission_required = "core.change_reservation"
     model = Reservation
     form_class = ReservationManageForm

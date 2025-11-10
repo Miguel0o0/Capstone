@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Fee, Payment,Document,Incident,Reservation,Resource
+from .models import Document, Fee, Incident, Payment, Reservation, Resource
 
 
 class PaymentForm(forms.ModelForm):
@@ -47,10 +47,12 @@ class PaymentForm(forms.ModelForm):
                     (Payment.STATUS_PENDING, label_map[Payment.STATUS_PENDING])
                 ]
 
+
 class DocumentForm(forms.ModelForm):
     class Meta:
         model = Document
         fields = ["titulo", "descripcion", "categoria", "visibilidad", "archivo"]
+
 
 class IncidentForm(forms.ModelForm):
     class Meta:
@@ -60,6 +62,7 @@ class IncidentForm(forms.ModelForm):
             "descripcion": forms.Textarea(attrs={"rows": 4}),
         }
 
+
 class IncidentManageForm(forms.ModelForm):
     class Meta:
         model = Incident
@@ -68,22 +71,30 @@ class IncidentManageForm(forms.ModelForm):
             "nota_resolucion": forms.Textarea(attrs={"rows": 4}),
         }
 
+
 _DT_FMT = "%Y-%m-%dT%H:%M"  # para <input type="datetime-local">
+
 
 class ReservationForm(forms.ModelForm):
     class Meta:
         model = Reservation
         fields = ["resource", "title", "start_at", "end_at", "notes"]
         widgets = {
-            "start_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format=_DT_FMT),
-            "end_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format=_DT_FMT),
+            "start_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format=_DT_FMT
+            ),
+            "end_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format=_DT_FMT
+            ),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # solo recursos activos, ordenados
-        self.fields["resource"].queryset = Resource.objects.filter(activo=True).order_by("nombre")
+        self.fields["resource"].queryset = Resource.objects.filter(
+            activo=True
+        ).order_by("nombre")
 
 
 class ReservationManageForm(forms.ModelForm):
@@ -91,8 +102,12 @@ class ReservationManageForm(forms.ModelForm):
         model = Reservation
         fields = ["status", "start_at", "end_at", "notes"]
         widgets = {
-            "start_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format=_DT_FMT),
-            "end_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format=_DT_FMT),
+            "start_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format=_DT_FMT
+            ),
+            "end_at": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format=_DT_FMT
+            ),
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 

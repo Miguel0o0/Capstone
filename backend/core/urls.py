@@ -1,5 +1,6 @@
 # backend/core/urls.py
 from django.urls import path
+
 from . import views
 
 app_name = "core"
@@ -10,7 +11,6 @@ urlpatterns = [
     # -----------------------------
     path("", views.home, name="home"),
     path("panel/", views.dashboard, name="dashboard"),
-
     # -----------------------------
     # Avisos
     # -----------------------------
@@ -35,25 +35,16 @@ urlpatterns = [
         views.AnnouncementDeleteView.as_view(),
         name="announcement_delete",
     ),
-
     # -----------------------------
     # Reuniones
     # -----------------------------
-    path(
-        "reuniones/", 
-        views.MeetingListView.as_view(), 
-        name="meeting_list"
-    ),
+    path("reuniones/", views.MeetingListView.as_view(), name="meeting_list"),
     path(
         "reuniones/<int:pk>/",
         views.MeetingDetailView.as_view(),
         name="meeting_detail",
     ),
-    path(
-        "reuniones/nueva/", 
-        views.MeetingCreateView.as_view(), 
-        name="meeting_create"
-    ),
+    path("reuniones/nueva/", views.MeetingCreateView.as_view(), name="meeting_create"),
     path(
         "reuniones/<int:pk>/editar/",
         views.MeetingUpdateView.as_view(),
@@ -64,20 +55,11 @@ urlpatterns = [
         views.MeetingDeleteView.as_view(),
         name="meeting_delete",
     ),
-
     # -----------------------------
     # Actas
     # -----------------------------
-    path(
-        "actas/<int:pk>/", 
-        views.MinutesDetailView.as_view(), 
-        name="minutes_detail"
-    ),
-    path(
-        "actas/nueva/", 
-        views.MinutesCreateView.as_view(), 
-        name="minutes_create"
-    ),
+    path("actas/<int:pk>/", views.MinutesDetailView.as_view(), name="minutes_detail"),
+    path("actas/nueva/", views.MinutesCreateView.as_view(), name="minutes_create"),
     path(
         "actas/<int:pk>/editar/",
         views.MinutesUpdateView.as_view(),
@@ -88,50 +70,29 @@ urlpatterns = [
         views.MinutesDeleteView.as_view(),
         name="minutes_delete",
     ),
-
     # -----------------------------
     # Cuotas (Fees)
     # -----------------------------
-    path(
-        "fees/", 
-        views.FeeListView.as_view(), 
-        name="fee_list"
-    ),
-    path(
-        "fees/nueva/", 
-        views.FeeCreateView.as_view(), 
-        name="fee_create"
-    ),
-    path(
-        "fees/<int:pk>/editar/", 
-        views.FeeUpdateView.as_view(), 
-        name="fee_update"
-    ),
-
+    path("fees/", views.FeeListView.as_view(), name="fee_list"),
+    path("fees/nueva/", views.FeeCreateView.as_view(), name="fee_create"),
+    path("fees/<int:pk>/editar/", views.FeeUpdateView.as_view(), name="fee_update"),
     # -----------------------------
     # Pagos (Payments)
     # -----------------------------
     path(
-        "pagos/admin/", 
-        views.PaymentListAdminView.as_view(), 
-        name="payment_list_admin"
+        "pagos/admin/", views.PaymentListAdminView.as_view(), name="payment_list_admin"
     ),
+    path("mis-pagos/", views.MyPaymentsView.as_view(), name="my_payments"),
     path(
-        "mis-pagos/", 
-        views.MyPaymentsView.as_view(), 
-        name="my_payments"
-    ),
-    path(
-        "pagos/nuevo/", 
+        "pagos/nuevo/",
         views.PaymentCreateForResidentView.as_view(),
-        name="payment_create"
+        name="payment_create",
     ),
     path(
-        "pagos/<int:pk>/editar/", 
-        views.PaymentUpdateAdminView.as_view(), 
-        name="payment_update_admin"
+        "pagos/<int:pk>/editar/",
+        views.PaymentUpdateAdminView.as_view(),
+        name="payment_update_admin",
     ),
-
     # -----------------------------
     # 👑 Presidente: Gestión de vecinos
     # -----------------------------
@@ -145,7 +106,6 @@ urlpatterns = [
         views.PresidentResidentToggleActiveView.as_view(),
         name="resident_toggle",
     ),
-
     # -----------------------------
     # Documentos
     # -----------------------------
@@ -164,55 +124,50 @@ urlpatterns = [
         views.document_download_view,
         name="documents-download",
     ),
-
     # Incidencias
     path(
-        "incidencias/mis-incidencias/", 
-        views.IncidentListMineView.as_view(), 
-        name="incident_mine"
+        "incidencias/mis-incidencias/",
+        views.IncidentListMineView.as_view(),
+        name="incident_mine",
     ),
     path(
-        "incidencias/nueva/", 
-        views.IncidentCreateView.as_view(), 
-        name="incident_create"
+        "incidencias/nueva/", views.IncidentCreateView.as_view(), name="incident_create"
     ),
     path(
-        "incidencias/admin/", 
-        views.IncidentListAdminView.as_view(), 
-        name="incident_admin"
+        "incidencias/admin/",
+        views.IncidentListAdminView.as_view(),
+        name="incident_admin",
     ),
     path(
-        "incidencias/<int:pk>/gestionar/", 
-        views.IncidentManageView.as_view(), 
-        name="incident_manage"
+        "incidencias/<int:pk>/gestionar/",
+        views.IncidentManageView.as_view(),
+        name="incident_manage",
     ),
-
-    #Reserva de Recursos
+    # Reserva de Recursos
     # Reservas
     path(
-        "reservas/mis-reservas/", 
-        views.MyReservationsListView.as_view(), 
-        name="reservation_mine"
+        "reservas/mis-reservas/",
+        views.MyReservationsListView.as_view(),
+        name="reservation_mine",
     ),
     path(
-        "reservas/nueva/", 
-        views.ReservationCreateView.as_view(), 
-        name="reservation_create"
+        "reservas/nueva/",
+        views.ReservationCreateView.as_view(),
+        name="reservation_create",
     ),
     path(
-        "reservas/<int:pk>/cancelar/", 
-        views.ReservationCancelView.as_view(), 
-        name="reservation_cancel"
+        "reservas/<int:pk>/cancelar/",
+        views.ReservationCancelView.as_view(),
+        name="reservation_cancel",
     ),
     path(
-        "reservas/admin/", 
-        views.ReservationListAdminView.as_view(), 
-        name="reservation_admin"
+        "reservas/admin/",
+        views.ReservationListAdminView.as_view(),
+        name="reservation_admin",
     ),
     path(
-        "reservas/<int:pk>/gestionar/", 
-        views.ReservationManageView.as_view(), 
-        name="reservation_manage"
+        "reservas/<int:pk>/gestionar/",
+        views.ReservationManageView.as_view(),
+        name="reservation_manage",
     ),
-
 ]

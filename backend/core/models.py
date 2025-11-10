@@ -1,13 +1,14 @@
 # backend/core/models.py
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.db import models
-from django.db.models import Q
-from django.core.exceptions import ValidationError
-from django.core.validators import FileExtensionValidator
-from django.utils import timezone
 import os
 import uuid
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
+from django.db import models
+from django.db.models import Q
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -17,6 +18,7 @@ class Resident(models.Model):
     Perfil extendido del usuario (opcional).
     Si no hay User (anónimo / aún sin cuenta), igual podemos registrar al residente.
     """
+
     user = models.OneToOneField(
         User,
         blank=True,
@@ -41,6 +43,7 @@ class Household(models.Model):
     """
     Vivienda/Unidad. Puede tener varios residentes (comparten hogar).
     """
+
     direccion = models.CharField(max_length=200)
     numero = models.CharField(max_length=20, blank=True)
     referencia = models.CharField(max_length=200, blank=True)
@@ -173,15 +176,26 @@ class Payment(models.Model):
 
 # --- Helpers y validadores ---
 ALLOWED_EXTENSIONS = [
-    "pdf", "doc", "docx", "xls", "xlsx", "csv", "ppt", "pptx",
-    "jpg", "jpeg", "png"
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "csv",
+    "ppt",
+    "pptx",
+    "jpg",
+    "jpeg",
+    "png",
 ]
 MAX_FILE_MB = 20
+
 
 def validate_file_size(f):
     max_bytes = MAX_FILE_MB * 1024 * 1024
     if f.size > max_bytes:
         raise ValidationError(f"El archivo supera {MAX_FILE_MB} MB.")
+
 
 def document_upload_to(instance, filename):
     # Nombre único y carpeta por año/mes (si created_at aún no existe, usamos ahora)
@@ -213,20 +227,25 @@ class Document(models.Model):
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
     categoria = models.ForeignKey(
-        DocumentCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="documentos"
+        DocumentCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documentos",
     )
     archivo = models.FileField(
         upload_to=document_upload_to,
-        validators=[
-            FileExtensionValidator(ALLOWED_EXTENSIONS),
-            validate_file_size
-        ],
+        validators=[FileExtensionValidator(ALLOWED_EXTENSIONS), validate_file_size],
     )
     visibilidad = models.CharField(
         max_length=12, choices=Visibility.choices, default=Visibility.RESIDENTES
     )
     subido_por = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="documentos_subidos"
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documentos_subidos",
     )
     is_active = models.BooleanField(default=True)  # “Soft delete”
     created_at = models.DateTimeField(auto_now_add=True)
@@ -243,8 +262,7 @@ class Document(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(titulo__regex=r".*\S.*"),
-                name="document_title_not_blank"
+                check=models.Q(titulo__regex=r".*\S.*"), name="document_title_not_blank"
             )
         ]
 
@@ -255,14 +273,19 @@ class Document(models.Model):
     def filename(self):
         return os.path.basename(self.archivo.name)
 
+
 def validate_image_size(f):
     max_mb = 10
     if f.size > max_mb * 1024 * 1024:
         raise ValidationError(f"La imagen supera {max_mb} MB.")
 
+
 def incident_upload_to(instance, filename):
     ext = filename.split(".")[-1].lower()
-    return os.path.join("incidencias", f"{instance.created_at:%Y/%m}", f"{uuid.uuid4().hex}.{ext}")
+    return os.path.join(
+        "incidencias", f"{instance.created_at:%Y/%m}", f"{uuid.uuid4().hex}.{ext}"
+    )
+
 
 class IncidentCategory(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
@@ -290,7 +313,11 @@ class Incident(models.Model):
         related_name="incidencias_reportadas",
     )
     categoria = models.ForeignKey(
-        IncidentCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name="incidencias"
+        IncidentCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="incidencias",
     )
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField()
@@ -298,14 +325,20 @@ class Incident(models.Model):
         upload_to=incident_upload_to,
         blank=True,
         null=True,
-        validators=[FileExtensionValidator(["jpg", "jpeg", "png"]), validate_image_size],
+        validators=[
+            FileExtensionValidator(["jpg", "jpeg", "png"]),
+            validate_image_size,
+        ],
     )
 
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.OPEN
+    )
     asignada_a = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="incidencias_asignadas",
         help_text="(Opcional) Miembro del staff que gestionará la incidencia",
     )
@@ -351,8 +384,11 @@ class ResourceCategory(models.Model):
 class Resource(models.Model):
     nombre = models.CharField(max_length=150, unique=True)
     categoria = models.ForeignKey(
-        ResourceCategory, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="recursos"
+        ResourceCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recursos",
     )
     descripcion = models.TextField(blank=True)
     activo = models.BooleanField(default=True)
@@ -377,9 +413,13 @@ class Reservation(models.Model):
         REJECTED = "REJECTED", "Rechazada"
         CANCELLED = "CANCELLED", "Cancelada"
 
-    resource = models.ForeignKey(Resource, on_delete=models.CASCADE, related_name="reservas")
+    resource = models.ForeignKey(
+        Resource, on_delete=models.CASCADE, related_name="reservas"
+    )
     requested_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reservas_solicitadas"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reservas_solicitadas",
     )
 
     title = models.CharField("Título/uso", max_length=200)
@@ -388,11 +428,16 @@ class Reservation(models.Model):
     start_at = models.DateTimeField("Inicio")
     end_at = models.DateTimeField("Término")
 
-    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.PENDING
+    )
 
     approved_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="reservas_aprobadas"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reservas_aprobadas",
     )
     approved_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
@@ -415,7 +460,9 @@ class Reservation(models.Model):
 
     def clean(self):
         if self.start_at >= self.end_at:
-            raise ValidationError("La fecha/hora de inicio debe ser menor que la de término.")
+            raise ValidationError(
+                "La fecha/hora de inicio debe ser menor que la de término."
+            )
         qs = Reservation.objects.filter(
             resource=self.resource,
             status__in=[Reservation.Status.PENDING, Reservation.Status.APPROVED],

@@ -1,6 +1,6 @@
-from django.core.management.base import BaseCommand
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
@@ -11,8 +11,15 @@ class Command(BaseCommand):
 
         # Modelos reales definidos en tu app
         MODELS = [
-            "announcement", "meeting", "minutes", "fee", "payment",
-            "resident", "resource", "reservation", "incident"
+            "announcement",
+            "meeting",
+            "minutes",
+            "fee",
+            "payment",
+            "resident",
+            "resource",
+            "reservation",
+            "incident",
         ]
 
         # Permisos diferenciados por rol
@@ -20,47 +27,49 @@ class Command(BaseCommand):
             "Presidente": "ALL",
             "Secretario": {
                 "announcement": ["add", "change", "delete", "view"],
-                "meeting":      ["add", "change", "delete", "view"],
-                "minutes":      ["add", "change", "delete", "view"],
-                "fee":          ["view"],
-                "payment":      ["view"],
+                "meeting": ["add", "change", "delete", "view"],
+                "minutes": ["add", "change", "delete", "view"],
+                "fee": ["view"],
+                "payment": ["view"],
             },
             "Tesorero": {
-                "fee":      ["add", "change", "delete", "view"],
-                "payment":  ["add", "change", "delete", "view"],
+                "fee": ["add", "change", "delete", "view"],
+                "payment": ["add", "change", "delete", "view"],
                 "announcement": ["view"],
-                "meeting":      ["view"],
+                "meeting": ["view"],
             },
             "Delegado": {
                 "announcement": ["add", "change", "delete", "view"],
-                "minutes":      ["add", "change", "delete", "view"],
-                "meeting":      ["view"],
-                "fee":          ["view"],
-                "payment":      ["view"],
+                "minutes": ["add", "change", "delete", "view"],
+                "meeting": ["view"],
+                "fee": ["view"],
+                "payment": ["view"],
             },
             "Vecino": {
                 "announcement": ["view"],
-                "meeting":      ["view"],
-                "minutes":      ["view"],
-                "payment":      ["view"],
-                "reservation":  ["add", "change", "view"],
-                "incident":     ["add", "view"],
+                "meeting": ["view"],
+                "minutes": ["view"],
+                "payment": ["view"],
+                "reservation": ["add", "change", "view"],
+                "incident": ["add", "view"],
             },
         }
 
-        def grant(group, model, actions):
+        def grant(group: Group, model: str, actions: list[str]) -> None:
             for a in actions:
                 code = f"{a}_{model}"
                 try:
                     perm = Permission.objects.get(codename=code)
                     group.permissions.add(perm)
                 except ObjectDoesNotExist:
-                    self.stdout.write(self.style.WARNING(
-                        f"[WARN] Permiso no existe: {code} — revisa app/modelo o migra."
-                    ))
+                    msg = (
+                        f"[WARN] Permiso no existe: {code} — "
+                        "revisa app/modelo o migra."
+                    )
+                    self.stdout.write(self.style.WARNING(msg))
 
         for role, spec in perms_by_role.items():
-            group, _ = Group.objects.get_or_create(name=role)
+            group, _created = Group.objects.get_or_create(name=role)
             if spec == "ALL":
                 for m in MODELS:
                     grant(group, m, ["add", "change", "delete", "view"])
@@ -68,4 +77,6 @@ class Command(BaseCommand):
                 for m, actions in spec.items():
                     grant(group, m, actions)
 
-        self.stdout.write(self.style.SUCCESS("✅ Grupos y permisos configurados correctamente."))
+        self.stdout.write(
+            self.style.SUCCESS("✅ Grupos y permisos configurados correctamente.")
+        )

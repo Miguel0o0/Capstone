@@ -2,20 +2,21 @@ from django.contrib import admin
 
 from .models import (
     Announcement,
+    Document,
+    DocumentCategory,
     Fee,
     Household,
+    Incident,
+    IncidentCategory,
     Meeting,
     Minutes,
     Payment,
+    Reservation,
     Resident,
-    Document,
-    DocumentCategory,
-    Incident,
-    IncidentCategory,
-    ResourceCategory, 
-    Resource, 
-    Reservation
+    Resource,
+    ResourceCategory,
 )
+
 
 # ---------------------
 # Residentes y Hogares
@@ -32,6 +33,7 @@ class HouseholdAdmin(admin.ModelAdmin):
     list_display = ("direccion", "numero", "referencia")
     search_fields = ("direccion",)
 
+
 # -----------
 # Anuncios
 # -----------
@@ -40,6 +42,7 @@ class AnnouncementAdmin(admin.ModelAdmin):
     list_display = ("titulo", "creado_por", "visible_hasta", "creado_en")
     search_fields = ("titulo", "cuerpo")
     list_filter = ("visible_hasta", "creado_en")
+
 
 # -----------
 # Reuniones
@@ -56,6 +59,7 @@ class MinutesAdmin(admin.ModelAdmin):
     list_display = ("meeting", "creado_en")
     search_fields = ("meeting__tema",)
 
+
 # -------
 # Cuotas
 # -------
@@ -64,6 +68,7 @@ class FeeAdmin(admin.ModelAdmin):
     list_display = ("period", "amount")
     search_fields = ("period",)
     ordering = ("-period",)
+
 
 # --------
 # Pagos
@@ -79,6 +84,7 @@ class PaymentAdmin(admin.ModelAdmin):
         "fee__period",
     )
     autocomplete_fields = ("resident", "fee")
+
 
 # ---------------
 # Documentos
@@ -122,21 +128,28 @@ class DocumentAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
 
     fieldsets = (
-        ("Información", {
-            "fields": ("titulo", "descripcion", "categoria", "visibilidad", "is_active")
-        }),
-        ("Archivo", {
-            "fields": ("archivo",)
-        }),
-        ("Metadatos", {
-            "fields": ("subido_por", "created_at", "updated_at")
-        }),
+        (
+            "Información",
+            {
+                "fields": (
+                    "titulo",
+                    "descripcion",
+                    "categoria",
+                    "visibilidad",
+                    "is_active",
+                )
+            },
+        ),
+        ("Archivo", {"fields": ("archivo",)}),
+        ("Metadatos", {"fields": ("subido_por", "created_at", "updated_at")}),
     )
+
 
 @admin.register(IncidentCategory)
 class IncidentCategoryAdmin(admin.ModelAdmin):
     list_display = ("nombre",)
     search_fields = ("nombre",)
+
 
 @admin.register(Incident)
 class IncidentAdmin(admin.ModelAdmin):
@@ -145,10 +158,12 @@ class IncidentAdmin(admin.ModelAdmin):
     search_fields = ("titulo", "descripcion", "reportado_por__username")
     autocomplete_fields = ("reportado_por", "asignada_a", "categoria")
 
+
 @admin.register(ResourceCategory)
 class ResourceCategoryAdmin(admin.ModelAdmin):
     list_display = ("nombre",)
     search_fields = ("nombre",)
+
 
 @admin.register(Resource)
 class ResourceAdmin(admin.ModelAdmin):
@@ -156,6 +171,7 @@ class ResourceAdmin(admin.ModelAdmin):
     list_filter = ("activo", "categoria")
     search_fields = ("nombre",)
     autocomplete_fields = ("categoria",)
+
 
 @admin.register(Reservation)
 class ReservationAdmin(admin.ModelAdmin):
