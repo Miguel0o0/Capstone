@@ -22,24 +22,16 @@
         <span>Junta UT</span>
       </a>
 
-      <ul class="nav-links">
-        <!-- Comunes a todo usuario autenticado -->
-        {% if request.user.is_authenticated %}
-          <li><a href="{% url 'core:announcement_list' %}">Avisos</a></li>
-          <li><a href="{% url 'core:meeting_list' %}">Reuniones</a></li>
+<ul class="nav-links">
+  {% if request.user.is_authenticated %}
+    {% for item in nav_items %}
+      <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+    {% empty %}
+      <li><span style="color:#888;">Sin opciones</span></li>
+    {% endfor %}
+  {% endif %}
+</ul>
 
-          {# Bloque Admin/Secretario/Superusuario (sin paréntesis) #}
-          {% if request.user.is_superuser or request.user|has_group:'Admin' or request.user|has_group:'Secretario' %}
-            <li><a href="{% url 'core:dashboard' %}">Panel</a></li>
-            <li><a href="{% url 'core:minutes_create' %}">Nueva Acta</a></li>
-            <li><a href="{% url 'core:fee_list' %}">Cuotas</a></li>
-            <li><a href="{% url 'core:payment_list_admin' %}">Pagos</a></li>
-          {% else %}
-            {# Vecino: solo su listado de pagos #}
-            <li><a href="{% url 'core:my_payments' %}">Mis pagos</a></li>
-          {% endif %}
-        {% endif %}
-      </ul>
 
       <div class="nav-actions">
         {% if request.user.is_authenticated %}
@@ -52,6 +44,17 @@
         {% endif %}
       </div>
     </nav>
+
+    {# Mensajes flash (Django messages) #}
+    {% if messages %}
+      <div class="messages" style="margin:.5rem 1rem;">
+        {% for m in messages %}
+          <div class="msg {{ m.tags }}" style="padding:.4rem .6rem; border:1px solid #cfe3ff; background:#f3f8ff; margin-bottom:.3rem;">
+            {{ m }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
   </header>
 
   <main class="site-content container">

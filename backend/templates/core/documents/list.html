@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Documentos</h1>
+
+<form method="get" class="mb-3">
+  <input type="text" name="q" value="{{ q }}" placeholder="Buscar..." />
+  <select name="cat">
+    <option value="">Todas las categorías</option>
+    {% for c in categorias %}
+      <option value="{{ c.id }}" {% if cat_selected|default:'' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.nombre }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Filtrar</button>
+  {% if request.user.is_staff %}<a href="{% url 'core:documents-create' %}">Subir documento</a>{% endif %}
+</form>
+
+<ul>
+  {% for d in docs %}
+    <li>
+      <strong>{{ d.titulo }}</strong>
+      {% if d.categoria %}<em>({{ d.categoria.nombre }})</em>{% endif %}
+      <br/>
+      <small>Visibilidad: {{ d.get_visibilidad_display }} · Subido: {{ d.created_at|date:"Y-m-d H:i" }}</small><br/>
+      {% if d.descripcion %}<div>{{ d.descripcion }}</div>{% endif %}
+      <a href="{% url 'core:documents-download' d.pk %}">Descargar</a>
+    </li>
+  {% empty %}
+    <li>No hay documentos.</li>
+  {% endfor %}
+</ul>
+
+{% if is_paginated %}
+  <div>
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&cat={{ cat_selected }}">Anterior</a>{% endif %}
+    <span>Página {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ q }}&cat={{ cat_selected }}">Siguiente</a>{% endif %}
+  </div>
+{% endif %}
+{% endblock %}

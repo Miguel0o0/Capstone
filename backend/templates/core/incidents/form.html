@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Nueva incidencia{% endblock %}
+{% block content %}
+<h1>Nueva incidencia</h1>
+<form method="post" enctype="multipart/form-data" class="card">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button class="btn btn-primary" type="submit">Enviar</button>
+  <a class="btn" href="{% url 'core:incident_mine' %}">Cancelar</a>
+</form>
+{% endblock %}

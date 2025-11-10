@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Incidencias (admin){% endblock %}
+{% block content %}
+<h1>Incidencias (admin)</h1>
+
+<form method="get" class="filters row">
+  <label>Estado:
+    <select name="estado">
+      <option value="">Todos</option>
+      {% for val,label in view.model.Status.choices %}
+        <option value="{{ val }}" {% if val == estado %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>Categoría:
+    <select name="cat">
+      <option value="">Todas</option>
+      {% for c in categorias %}
+        <option value="{{ c.id }}" {% if c.id|stringformat:"s" == cat_selected %}selected{% endif %}>{{ c.nombre }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Título</th><th>Vecino</th><th>Estado</th><th>Categoría</th><th>Creada</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for i in incidencias %}
+      <tr>
+        <td>{{ i.titulo }}</td>
+        <td>{{ i.reportado_por }}</td>
+        <td>{{ i.get_status_display }}</td>
+        <td>{{ i.categoria }}</td>
+        <td>{{ i.created_at|date:"d/m/Y H:i" }}</td>
+        <td><a class="btn btn-small" href="{% url 'core:incident_manage' i.pk %}">Gestionar</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="muted">Sin incidencias</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

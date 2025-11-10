@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Documentos</h1>
+
+<form method="get" style="margin:.5rem 0">
+  <input type="text" name="q" placeholder="Buscar..." value="{{ request.GET.q }}">
+  <select name="cat">
+    <option value="">Todas las categorías</option>
+    <option value="certificado" {% if request.GET.cat == "certificado" %}selected{% endif %}>Certificados</option>
+    <option value="reglamento"  {% if request.GET.cat == "reglamento"  %}selected{% endif %}>Reglamentos</option>
+    <option value="formulario" {% if request.GET.cat == "formulario" %}selected{% endif %}>Formularios</option>
+    <option value="otro"        {% if request.GET.cat == "otro"        %}selected{% endif %}>Otros</option>
+  </select>
+  <button>Filtrar</button>
+</form>
+
+<table>
+  <thead>
+    <tr>
+      <th>Título</th>
+      <th>Categoría</th>
+      <th>Archivo</th>
+      {% if perms.core.delete_document or perms.core.add_document %}
+        <th>Acciones</th>
+      {% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for d in docs %}
+      <tr>
+        <td>{{ d.title }}</td>
+        <td>{{ d.get_category_display }}</td>
+        <td>
+          {% if d.file %}
+            <a href="{{ d.file.url }}" download>Descargar</a>
+          {% else %}
+            <em>Sin archivo</em>
+          {% endif %}
+        </td>
+        {% if perms.core.delete_document %}
+          <td><a href="{% url 'core:document_delete' d.pk %}">Eliminar</a></td>
+        {% endif %}
+      </tr>
+    {% empty %}
+      <tr><td colspan="4">Sin documentos.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if perms.core.add_document %}
+  <p style="margin-top:.7rem">
+    <a href="{% url 'core:document_create' %}">+ Nuevo documento</a>
+  </p>
+{% endif %}
+{% endblock %}

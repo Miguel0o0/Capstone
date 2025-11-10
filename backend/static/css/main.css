@@ -75,3 +75,4 @@ a:hover { text-decoration: underline; }
 @media (max-width: 900px){
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
 }
+
