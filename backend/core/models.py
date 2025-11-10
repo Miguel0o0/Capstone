@@ -8,7 +8,6 @@ from django.core.validators import FileExtensionValidator
 from django.utils import timezone
 import os
 import uuid
-from django.utils.timezone import now
 
 User = get_user_model()
 

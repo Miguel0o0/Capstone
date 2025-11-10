@@ -7,7 +7,7 @@ class Command(BaseCommand):
     help = "Crea o actualiza grupos y permisos según los roles definidos"
 
     def handle(self, *args, **options):
-        APP = "core"  # ajusta si tu app no es 'core'
+        _ = "core"  # ajusta si tu app no es 'core'
 
         # Modelos reales definidos en tu app
         MODELS = [

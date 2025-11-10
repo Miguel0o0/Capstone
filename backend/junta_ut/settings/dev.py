@@ -1,5 +1,5 @@
 # backend/junta_ut/settings/dev.py
-from .base import *
+from .base import *  # noqa: F401,F403
 
 DEBUG = True
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]

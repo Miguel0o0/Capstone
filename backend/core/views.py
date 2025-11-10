@@ -1,10 +1,8 @@
 # backend/core/views.py
-from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.contrib.auth.decorators import (
     login_required,
     permission_required,
-    user_passes_test,
 )
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
