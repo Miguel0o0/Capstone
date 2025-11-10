@@ -1,8 +1,25 @@
 from django.contrib import admin
 
-from .models import Announcement, Fee, Household, Meeting, Minutes, Payment, Resident
+from .models import (
+    Announcement,
+    Fee,
+    Household,
+    Meeting,
+    Minutes,
+    Payment,
+    Resident,
+    Document,
+    DocumentCategory,
+    Incident,
+    IncidentCategory,
+    ResourceCategory, 
+    Resource, 
+    Reservation
+)
 
-
+# ---------------------
+# Residentes y Hogares
+# ---------------------
 @admin.register(Resident)
 class ResidentAdmin(admin.ModelAdmin):
     list_display = ("nombre", "email", "telefono", "activo")
@@ -15,14 +32,18 @@ class HouseholdAdmin(admin.ModelAdmin):
     list_display = ("direccion", "numero", "referencia")
     search_fields = ("direccion",)
 
-
+# -----------
+# Anuncios
+# -----------
 @admin.register(Announcement)
 class AnnouncementAdmin(admin.ModelAdmin):
     list_display = ("titulo", "creado_por", "visible_hasta", "creado_en")
     search_fields = ("titulo", "cuerpo")
     list_filter = ("visible_hasta", "creado_en")
 
-
+# -----------
+# Reuniones
+# -----------
 @admin.register(Meeting)
 class MeetingAdmin(admin.ModelAdmin):
     list_display = ("fecha", "lugar", "tema", "creado_en")
@@ -35,14 +56,18 @@ class MinutesAdmin(admin.ModelAdmin):
     list_display = ("meeting", "creado_en")
     search_fields = ("meeting__tema",)
 
-
+# -------
+# Cuotas
+# -------
 @admin.register(Fee)
 class FeeAdmin(admin.ModelAdmin):
     list_display = ("period", "amount")
     search_fields = ("period",)
     ordering = ("-period",)
 
-
+# --------
+# Pagos
+# --------
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ("resident", "fee", "amount", "status", "paid_at", "created_at")
@@ -54,3 +79,87 @@ class PaymentAdmin(admin.ModelAdmin):
         "fee__period",
     )
     autocomplete_fields = ("resident", "fee")
+
+# ---------------
+# Documentos
+# ---------------
+@admin.register(DocumentCategory)
+class DocumentCategoryAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "descripcion")
+    search_fields = ("nombre",)
+
+
+@admin.action(description="Marcar como INACTIVOS (soft delete)")
+def marcar_inactivos(modeladmin, request, queryset):
+    queryset.update(is_active=False)
+
+
+@admin.action(description="Marcar como ACTIVOS")
+def marcar_activos(modeladmin, request, queryset):
+    queryset.update(is_active=True)
+
+
+@admin.register(Document)
+class DocumentAdmin(admin.ModelAdmin):
+    list_display = (
+        "titulo",
+        "categoria",
+        "visibilidad",
+        "is_active",
+        "subido_por",
+        "created_at",
+    )
+    list_filter = (
+        "visibilidad",
+        "is_active",
+        "categoria",
+        "created_at",
+    )
+    search_fields = ("titulo", "descripcion", "subido_por__username")
+    autocomplete_fields = ("categoria", "subido_por")
+    date_hierarchy = "created_at"
+    actions = [marcar_inactivos, marcar_activos]
+    readonly_fields = ("created_at", "updated_at")
+
+    fieldsets = (
+        ("Información", {
+            "fields": ("titulo", "descripcion", "categoria", "visibilidad", "is_active")
+        }),
+        ("Archivo", {
+            "fields": ("archivo",)
+        }),
+        ("Metadatos", {
+            "fields": ("subido_por", "created_at", "updated_at")
+        }),
+    )
+
+@admin.register(IncidentCategory)
+class IncidentCategoryAdmin(admin.ModelAdmin):
+    list_display = ("nombre",)
+    search_fields = ("nombre",)
+
+@admin.register(Incident)
+class IncidentAdmin(admin.ModelAdmin):
+    list_display = ("titulo", "reportado_por", "categoria", "status", "created_at")
+    list_filter = ("status", "categoria", "created_at")
+    search_fields = ("titulo", "descripcion", "reportado_por__username")
+    autocomplete_fields = ("reportado_por", "asignada_a", "categoria")
+
+@admin.register(ResourceCategory)
+class ResourceCategoryAdmin(admin.ModelAdmin):
+    list_display = ("nombre",)
+    search_fields = ("nombre",)
+
+@admin.register(Resource)
+class ResourceAdmin(admin.ModelAdmin):
+    list_display = ("nombre", "categoria", "activo")
+    list_filter = ("activo", "categoria")
+    search_fields = ("nombre",)
+    autocomplete_fields = ("categoria",)
+
+@admin.register(Reservation)
+class ReservationAdmin(admin.ModelAdmin):
+    list_display = ("resource", "title", "requested_by", "status", "start_at", "end_at")
+    list_filter = ("status", "resource", "start_at")
+    search_fields = ("title", "requested_by__username")
+    autocomplete_fields = ("resource", "requested_by", "approved_by")

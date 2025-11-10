@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Mis incidencias{% endblock %}
+{% block content %}
+<div class="head-between">
+  <h1>Mis incidencias</h1>
+  <a class="btn btn-primary" href="{% url 'core:incident_create' %}">Reportar incidencia</a>
+</div>
+
+<ul class="list">
+  {% for i in incidencias %}
+    <li class="card">
+      <div class="card-title">{{ i.titulo }} <small>({{ i.get_status_display }})</small></div>
+      <div class="card-body">
+        <p>{{ i.descripcion|linebreaksbr }}</p>
+        {% if i.foto %}<p><img src="{{ i.foto.url }}" alt="foto" style="max-width:280px"></p>{% endif %}
+        <small>Creada: {{ i.created_at|date:"d/m/Y H:i" }}</small>
+      </div>
+    </li>
+  {% empty %}
+    <li class="muted">No tienes incidencias aún.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

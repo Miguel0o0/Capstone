@@ -2,10 +2,8 @@
 from .base import *
 
 DEBUG = True
-if not ALLOWED_HOSTS:  # noqa: F405
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost"]  # noqa: F405
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
-# Opcional: correo en consola, etc.
+# Opcional: email a consola en desarrollo
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-
 DEFAULT_FROM_EMAIL = "no-reply@localhost"

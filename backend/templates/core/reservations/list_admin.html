@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Reservas (admin){% endblock %}
+{% block content %}
+<h1>Reservas (admin)</h1>
+
+<form method="get" class="filters row">
+  <label>Estado:
+    <select name="estado">
+      <option value="">Todos</option>
+      {% for val,label in view.model.Status.choices %}
+        <option value="{{ val }}" {% if val == estado %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Recurso:
+    <select name="recurso">
+      <option value="">Todos</option>
+      {% for r in recursos %}
+        <option value="{{ r.id }}" {% if r.id|stringformat:"s" == recurso_selected %}selected{% endif %}>{{ r.nombre }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button class="btn" type="submit">Filtrar</button>
+</form>
+
+<table class="table">
+  <thead>
+    <tr>
+      <th>Recurso</th><th>Título</th><th>Vecino</th>
+      <th>Inicio</th><th>Término</th><th>Estado</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in reservas %}
+      <tr>
+        <td>{{ r.resource }}</td>
+        <td>{{ r.title }}</td>
+        <td>{{ r.requested_by }}</td>
+        <td>{{ r.start_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ r.end_at|date:"d/m/Y H:i" }}</td>
+        <td>{{ r.get_status_display }}</td>
+        <td><a class="btn btn-small" href="{% url 'core:reservation_manage' r.pk %}">Gestionar</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7" class="muted">Sin reservas.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

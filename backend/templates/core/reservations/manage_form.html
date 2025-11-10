@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Gestionar reserva{% endblock %}
+{% block content %}
+<h1>Gestionar reserva</h1>
+<form method="post" class="card">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button class="btn btn-primary" type="submit">Guardar</button>
+  <a class="btn" href="{% url 'core:reservation_admin' %}">Volver</a>
+</form>
+{% endblock %}
