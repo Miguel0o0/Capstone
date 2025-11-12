@@ -22,11 +22,16 @@ from django.views.generic import (
     View,
 )
 
+from .context_processors import nav_items as build_nav_from_cp
+from .forms import IncidentForm  # (admin)
+from .forms import IncidentResidentForm  # (vecino)
+from .forms import PaymentForm  # (admin)
+from .forms import ResidentPaymentStartForm  # (vecino paso 1)
 from .forms import (
     DocumentForm,
-    IncidentForm,
     IncidentManageForm,
-    PaymentForm,
+    InscriptionCreateForm,
+    InscriptionManageForm,
     ReservationForm,
     ReservationManageForm,
 )
@@ -37,6 +42,7 @@ from .models import (
     Fee,
     Incident,
     IncidentCategory,
+    InscriptionEvidence,
     Meeting,
     Minutes,
     Payment,
@@ -45,11 +51,10 @@ from .models import (
     Resource,
 )
 
+
 # ------------------------------------------------
 # Menú dinámico (nav_items)
 # ------------------------------------------------
-
-
 def has_any_perm(user, perms):
     """True si el usuario tiene al menos uno de los permisos dados."""
     return any(user.has_perm(p) for p in perms)
@@ -67,7 +72,7 @@ def build_nav_items(request):
     items.append({"label": "Reuniones", "url": reverse("core:meeting_list")})
     items.append({"label": "Mis pagos", "url": reverse("core:my_payments")})
     items.append({"label": "Documentos", "url": reverse("core:documents-list")})
-    items.append({"label": "Incidencias", "url": reverse("core:incident_mine")})
+    items.append({"label": "Incidencias", "url": reverse("core:incident_list")})
     items.append({"label": "Reservas", "url": reverse("core:reservation_mine")})
 
     # Gestión (superuser / Admin / Secretario / Presidente)
@@ -82,7 +87,6 @@ def build_nav_items(request):
                 {"label": "Pagos (admin)", "url": reverse("core:payment_list_admin")}
             )
 
-        # Acceso directo a subir documento (la vista valida permisos con mixin)
         items.append(
             {"label": "Subir documento", "url": reverse("core:documents-create")}
         )
@@ -95,14 +99,12 @@ def build_nav_items(request):
             {"label": "Presidencia", "url": reverse("core:president_residents")}
         )
 
-    # Incidencias
-    if u.has_perm("core.view_incident"):
+    # Incidencias / Reservas admin visibles solo si puede CAMBIAR
+    if u.has_perm("core.change_incident"):
         items.append(
             {"label": "Incidencias (admin)", "url": reverse("core:incident_admin")}
         )
-
-    # Reserva
-    if u.has_perm("core.view_reservation"):
+    if u.has_perm("core.change_reservation"):
         items.append(
             {"label": "Reservas (admin)", "url": reverse("core:reservation_admin")}
         )
@@ -113,7 +115,7 @@ def build_nav_items(request):
 class NavItemsMixin:
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["nav_items"] = build_nav_items(self.request)
+        ctx.update(build_nav_from_cp(self.request))  # {"nav_items": [...]}
         return ctx
 
 
@@ -184,13 +186,13 @@ def allowed_visibility_for(user):
 # Vistas base
 # ----------------------------
 def home(request):
-    return render(request, "home.html", {"nav_items": build_nav_items(request)})
+    return render(request, "home.html")
 
 
 @login_required
 @permission_required("core.view_payment", raise_exception=True)
 def dashboard(request):
-    return render(request, "dashboard.html", {"nav_items": build_nav_items(request)})
+    return render(request, "dashboard.html")
 
 
 # ----------------------------
@@ -396,10 +398,14 @@ class MyPaymentsView(NavItemsMixin, LoginRequiredMixin, ListView):
 
 
 class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, CreateView):
+    """
+    Paso 1 (vecino): seleccionar deuda pendiente.
+    """
+
     model = Payment
-    form_class = PaymentForm
-    template_name = "core/payment_form.html"
-    success_url = reverse_lazy("core:my_payments")
+    form_class = ResidentPaymentStartForm
+    template_name = "core/payment_start_form.html"  # plantilla simple de selección
+    success_url = reverse_lazy("core:my_payments")  # por ahora volvemos a la lista
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -407,14 +413,14 @@ class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, CreateView
         return kwargs
 
     def form_valid(self, form):
+        # Creamos el registro de pago en estado PENDIENTE (sin método de pago aún)
         form.instance.resident = self.request.user
         form.instance.amount = form.cleaned_data["fee"].amount
-        u = self.request.user
-        is_admin = (
-            u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+        form.instance.status = Payment.STATUS_PENDING
+        messages.success(
+            self.request,
+            "Pago iniciado. En el siguiente paso podrás elegir el medio de pago (pendiente).",
         )
-        if not is_admin:
-            form.instance.status = Payment.STATUS_PENDING
         return super().form_valid(form)
 
 
@@ -577,28 +583,41 @@ def document_download_view(request, pk: int):
     return FileResponse(open(path, "rb"), as_attachment=True, filename=doc.filename)
 
 
+# ------------------------------------------------
+# Incidencias
+# ------------------------------------------------
 class IncidentListMineView(NavItemsMixin, LoginRequiredMixin, ListView):
+    """
+    Vecino: ve incidencias de toda la comunidad (no solo las suyas),
+    con posibilidad de filtrar por estado.
+    """
+
     model = Incident
     template_name = "core/incidents/list_mine.html"
     context_object_name = "incidencias"
     paginate_by = 10
 
     def get_queryset(self):
-        q = Incident.objects.filter(reportado_por=self.request.user)
+        qs = Incident.objects.all()
         estado = self.request.GET.get("estado")
         if estado in dict(Incident.Status.choices):
-            q = q.filter(status=estado)
-        return q.select_related("categoria").order_by("-created_at")
+            qs = qs.filter(status=estado)
+        return qs.select_related("categoria", "reportado_por").order_by("-created_at")
 
 
 class IncidentCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
+    """
+    Vecino: formulario simplificado (sin categoría).
+    """
+
     model = Incident
-    form_class = IncidentForm
-    template_name = "core/incidents/form.html"
+    form_class = IncidentResidentForm
+    template_name = "core/incidents/form_resident.html"
     success_url = reverse_lazy("core:incident_mine")
 
     def form_valid(self, form):
         form.instance.reportado_por = self.request.user
+        messages.success(self.request, "Incidencia reportada. ¡Gracias por avisar!")
         return super().form_valid(form)
 
 
@@ -631,6 +650,19 @@ class IncidentListAdminView(
         return ctx
 
 
+class IncidentListPublicView(NavItemsMixin, LoginRequiredMixin, ListView):
+    model = Incident
+    template_name = "core/incidents/list_public.html"
+    context_object_name = "incidencias"
+    paginate_by = 15
+
+    def get_queryset(self):
+        # Por ahora, todas ordenadas por fecha (luego puedes filtrar por comuna/barrio)
+        return Incident.objects.select_related("categoria", "reportado_por").order_by(
+            "-created_at"
+        )
+
+
 class IncidentManageView(
     NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
 ):
@@ -652,6 +684,9 @@ class IncidentManageView(
         return reverse_lazy("core:incident_admin")
 
 
+# ------------------------------------------------
+# Reservas
+# ------------------------------------------------
 class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
     model = Reservation
     template_name = "core/reservations/list_mine.html"
@@ -681,6 +716,11 @@ class ReservationCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
     form_class = ReservationForm
     template_name = "core/reservations/form.html"
     success_url = reverse_lazy("core:reservation_mine")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["request"] = self.request  # para leer ?tipo=... en el form
+        return kwargs
 
     def form_valid(self, form):
         form.instance.requested_by = self.request.user
@@ -713,9 +753,7 @@ class ReservationListAdminView(
 
     def get_queryset(self):
         qs = Reservation.objects.all().select_related(
-            "resource",
-            "requested_by",
-            "approved_by",
+            "resource", "requested_by", "approved_by"
         )
         estado = self.request.GET.get("estado")
         recurso = self.request.GET.get("recurso")
@@ -755,3 +793,54 @@ class ReservationManageView(
 
     def get_success_url(self):
         return reverse_lazy("core:reservation_admin")
+
+
+# ------------------------------------------------
+# Inscripciones (validación de domicilio)
+# ------------------------------------------------
+class InscriptionCreateView(CreateView):
+    model = InscriptionEvidence
+    form_class = InscriptionCreateForm
+    template_name = "core/inscription/form.html"
+    success_url = reverse_lazy("core:home")
+
+    def form_valid(self, form):
+        if self.request.user.is_authenticated:
+            form.instance.submitted_by = self.request.user
+        messages.success(
+            self.request,
+            "Tu solicitud fue enviada. La Junta revisará tu documento para validar tu domicilio.",
+        )
+        return super().form_valid(form)
+
+
+class InscriptionEvidenceListAdminView(PermissionRequiredMixin, ListView):
+    permission_required = "core.view_inscriptionevidence"
+    model = InscriptionEvidence
+    template_name = "core/inscription/list_admin.html"
+    paginate_by = 20
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by("-created_at")
+        status = self.request.GET.get("status")
+        return qs.filter(status=status) if status else qs
+
+
+class InscriptionEvidenceManageView(PermissionRequiredMixin, UpdateView):
+    permission_required = "core.change_inscriptionevidence"
+    model = InscriptionEvidence
+    form_class = InscriptionManageForm
+    template_name = "core/inscription/manage_form.html"
+
+    def form_valid(self, form):
+        obj = form.save(commit=False)
+        if form.cleaned_data["status"] == obj.Status.APPROVED:
+            obj.approve(self.request.user, form.cleaned_data.get("note", ""))
+        elif form.cleaned_data["status"] == obj.Status.REJECTED:
+            obj.reject(self.request.user, form.cleaned_data.get("note", ""))
+        obj.save()
+        messages.success(self.request, "Inscripción actualizada.")
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("core:insc_admin")

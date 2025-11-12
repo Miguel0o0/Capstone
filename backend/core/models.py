@@ -12,6 +12,9 @@ from django.utils import timezone
 
 User = get_user_model()
 
+ALLOWED_EXTS = {"pdf", "jpg", "jpeg", "png"}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+
 
 class Resident(models.Model):
     """
@@ -474,3 +477,68 @@ class Reservation(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+def evidence_upload_to(instance, filename):
+    return f"evidencias_inscripcion/{timezone.now():%Y/%m/%d}/{filename}"
+
+
+def validate_evidence(file):
+    ext = (file.name.rsplit(".", 1)[-1] or "").lower()
+    if ext not in ALLOWED_EXTS:
+        raise ValidationError("Formato no permitido (usa PDF, JPG, JPEG o PNG).")
+    if file.size and file.size > MAX_UPLOAD_BYTES:
+        raise ValidationError("El archivo supera 5 MB.")
+
+
+class InscriptionEvidence(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pendiente"
+        APPROVED = "APPROVED", "Aprobada"
+        REJECTED = "REJECTED", "Rechazada"
+
+    file = models.FileField(
+        upload_to=evidence_upload_to, validators=[validate_evidence]
+    )
+    status = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.PENDING
+    )
+
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="insc_submissions",
+    )
+    resident = models.ForeignKey(
+        Resident, null=True, blank=True, on_delete=models.SET_NULL
+    )
+
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="insc_validations",
+    )
+    validated_at = models.DateTimeField(null=True, blank=True)
+    note = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def approve(self, user, note=""):
+        self.status = self.Status.APPROVED
+        self.validated_by = user
+        self.validated_at = timezone.now()
+        self.note = note
+
+    def reject(self, user, note=""):
+        self.status = self.Status.REJECTED
+        self.validated_by = user
+        self.validated_at = timezone.now()
+        self.note = note
+
+    def __str__(self):
+        return f"Inscripción #{self.pk} - {self.get_status_display()}"

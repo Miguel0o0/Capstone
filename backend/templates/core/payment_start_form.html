@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Pago</h1>
+
+<form method="post" class="card">
+  {% csrf_token %}
+
+  <div class="form-row">
+    <label for="{{ form.fee.id_for_label }}"><strong>Seleccionar pago pendiente</strong></label>
+    {{ form.fee }}
+    {% if form.fee.errors %}<div class="error">{{ form.fee.errors }}</div>{% endif %}
+  </div>
+
+  <p class="help">
+    Nota: por ahora solo se selecciona la deuda. El siguiente paso (medio de pago, etc.) se implementará más adelante.
+  </p>
+
+  <!-- Botón no funcional por ahora -->
+  <button class="btn btn-primary" type="button">Continuar</button>
+  <a class="btn" href="{% url 'core:my_payments' %}">Cancelar</a>
+</form>
+{% endblock %}

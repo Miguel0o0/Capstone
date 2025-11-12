@@ -1,16 +1,30 @@
 {% extends "base.html" %}
-
 {% block content %}
 <h1>Pago</h1>
 
-<form method="post">
+<form method="post" class="card">
   {% csrf_token %}
   {{ form.non_field_errors }}
-  {{ form.as_p }}
 
-  <p><small>Nota: el <b>monto</b> se completa automáticamente desde la cuota seleccionada.</small></p>
+  {# Si el usuario es admin/secretario o superuser, mostramos todo el form por defecto #}
+  {% if perms.core.change_payment or user.is_superuser %}
+    {{ form.as_p }}
+    <button class="btn btn-primary" type="submit">Guardar</button>
+    <a class="btn" href="{% url 'core:my_payments' %}">Cancelar</a>
 
-  <button type="submit">Guardar</button>
-  <a href="{% url 'core:my_payments' %}">Cancelar</a>
+  {% else %}
+    {# Vecino: solo ver/seleccionar la cuota pendiente #}
+    <div class="form-group">
+      <label for="{{ form.fee.id_for_label }}">Seleccionar pago pendiente</label>
+      {{ form.fee }}
+      {{ form.fee.errors }}
+    </div>
+
+    {# resident/status/paid_at vienen ocultos por el form #}
+
+    {# Botón "Continuar" sin lógica aún (no envía el form) #}
+    <button class="btn btn-secondary" type="button">Continuar</button>
+    <a class="btn" href="{% url 'core:my_payments' %}">Cancelar</a>
+  {% endif %}
 </form>
 {% endblock %}

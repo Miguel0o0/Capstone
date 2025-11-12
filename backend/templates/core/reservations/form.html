@@ -2,10 +2,96 @@
 {% block title %}Nueva reserva{% endblock %}
 {% block content %}
 <h1>Nueva reserva</h1>
-<form method="post" class="card">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button class="btn btn-primary" type="submit">Solicitar</button>
-  <a class="btn" href="{% url 'core:reservation_mine' %}">Cancelar</a>
-</form>
+
+<div class="card" style="max-width:720px">
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="form-row">
+        <label for="id_tipo">{{ form.tipo.label }}:</label>
+        {{ form.tipo }}
+        {% if form.tipo.errors %}<div class="error">{{ form.tipo.errors }}</div>{% endif %}
+        <small class="muted">Cambia el tipo para ver solo los recursos de esa categoría.</small>
+      </div>
+
+      <script>
+        (function(){
+          const sel = document.getElementById("id_tipo");
+          if (sel) {
+            sel.addEventListener("change", function(){
+              const url = new URL(window.location.href);
+              url.searchParams.set("tipo", this.value);
+              window.location.href = url.toString();
+            });
+          }
+        })();
+      </script>
+
+      <div class="form-row">
+        <label for="id_resource">{{ form.resource.label }}:</label>
+        {{ form.resource }}
+        {% if form.resource.errors %}<div class="error">{{ form.resource.errors }}</div>{% endif %}
+      </div>
+
+      {# Fecha + hora (una sola fecha y una sola hora) #}
+      <div class="form-row">
+        <label for="id_start_date">{{ form.start_date.label }}:</label>
+        {{ form.start_date }}
+        {% if form.start_date.errors %}<div class="error">{{ form.start_date.errors }}</div>{% endif %}
+      </div>
+      <div class="form-row">
+        <label for="id_start_time">{{ form.start_time.label }}:</label>
+        {{ form.start_time }}
+        {% if form.start_time.errors %}<div class="error">{{ form.start_time.errors }}</div>{% endif %}
+      </div>
+
+      {# Campos ocultos reales del modelo #}
+      {{ form.start_at }} {{ form.end_at }}
+
+      {# Título/Notas solo para SALÓN #}
+      <div id="salon-extra" style="display:none">
+        <div class="form-row">
+          <label for="id_title">Título del evento:</label>
+          {{ form.title }}
+          {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-row">
+          <label for="id_notes">Descripción del evento:</label>
+          {{ form.notes }}
+          {% if form.notes.errors %}<div class="error">{{ form.notes.errors }}</div>{% endif %}
+        </div>
+      </div>
+
+      {% if form.non_field_errors %}
+        <div class="error">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <p class="muted">
+        Nota: por ahora la duración es de 1 hora. Si el horario está ocupado te avisaremos. Más adelante
+        sumamos disponibilidad en vivo y reglas por recurso.
+      </p>
+
+      <button class="btn btn-primary" type="submit">Solicitar</button>
+      <a class="btn" href="{% url 'core:reservation_mine' %}">Cancelar</a>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const tipoSel = document.getElementById("id_tipo");
+    const recursoRow = document.querySelector('label[for="id_resource"]')?.parentElement;
+    const salonExtra = document.getElementById("salon-extra");
+
+    function toggleByTipo(){
+      const isSalon = (tipoSel?.value === "salon");
+      if (recursoRow) recursoRow.style.display = isSalon ? "none" : "";
+      if (salonExtra) salonExtra.style.display = isSalon ? "" : "none";
+    }
+    toggleByTipo();
+    if (tipoSel) tipoSel.addEventListener("change", toggleByTipo);
+  })();
+</script>
 {% endblock %}

@@ -8,6 +8,7 @@ from .models import (
     Household,
     Incident,
     IncidentCategory,
+    InscriptionEvidence,
     Meeting,
     Minutes,
     Payment,
@@ -179,3 +180,19 @@ class ReservationAdmin(admin.ModelAdmin):
     list_filter = ("status", "resource", "start_at")
     search_fields = ("title", "requested_by__username")
     autocomplete_fields = ("resource", "requested_by", "approved_by")
+
+
+@admin.register(InscriptionEvidence)
+class InscriptionEvidenceAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "status",
+        "submitted_by",
+        "resident",
+        "created_at",
+        "validated_by",
+        "validated_at",
+    )
+    list_filter = ("status", "created_at")
+    search_fields = ("id", "submitted_by__username", "resident__nombre")
+    readonly_fields = ("created_at", "updated_at", "validated_by", "validated_at")

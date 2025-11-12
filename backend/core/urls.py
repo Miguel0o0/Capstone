@@ -2,6 +2,11 @@
 from django.urls import path
 
 from . import views
+from .views import (
+    InscriptionCreateView,
+    InscriptionEvidenceListAdminView,
+    InscriptionEvidenceManageView,
+)
 
 app_name = "core"
 
@@ -125,13 +130,14 @@ urlpatterns = [
         name="documents-download",
     ),
     # Incidencias
+    path("incidencias/", views.IncidentListPublicView.as_view(), name="incident_list"),
+    path(
+        "incidencias/nueva/", views.IncidentCreateView.as_view(), name="incident_create"
+    ),
     path(
         "incidencias/mis-incidencias/",
         views.IncidentListMineView.as_view(),
         name="incident_mine",
-    ),
-    path(
-        "incidencias/nueva/", views.IncidentCreateView.as_view(), name="incident_create"
     ),
     path(
         "incidencias/admin/",
@@ -169,5 +175,16 @@ urlpatterns = [
         "reservas/<int:pk>/gestionar/",
         views.ReservationManageView.as_view(),
         name="reservation_manage",
+    ),
+    path("inscripcion/", InscriptionCreateView.as_view(), name="insc_create"),
+    path(
+        "inscripcion/admin/",
+        InscriptionEvidenceListAdminView.as_view(),
+        name="insc_admin",
+    ),
+    path(
+        "inscripcion/<int:pk>/gestionar/",
+        InscriptionEvidenceManageView.as_view(),
+        name="insc_manage",
     ),
 ]

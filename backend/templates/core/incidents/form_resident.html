@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Nueva incidencia</h1>
+
+<form method="post" enctype="multipart/form-data" class="card">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  <div class="form-row">
+    <label for="{{ form.titulo.id_for_label }}"><strong>Título</strong></label>
+    {{ form.titulo }}
+    {{ form.titulo.errors }}
+  </div>
+
+  <div class="form-row">
+    <label for="{{ form.descripcion.id_for_label }}"><strong>Detalle</strong></label>
+    {{ form.descripcion }}
+    {{ form.descripcion.errors }}
+  </div>
+
+  <div class="form-row">
+    <label for="{{ form.foto.id_for_label }}"><strong>Foto (opcional)</strong></label>
+    {{ form.foto }}
+    {{ form.foto.errors }}
+  </div>
+
+  <button class="btn btn-primary" type="submit">Enviar</button>
+  <a class="btn" href="{% url 'core:incident_list' %}">Cancelar</a>
+</form>
+{% endblock %}

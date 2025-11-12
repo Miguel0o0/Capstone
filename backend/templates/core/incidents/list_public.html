@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Incidencias</h1>
+
+<p>
+  <a class="btn btn-primary" href="{% url 'core:incident_create' %}">Reportar incidencia</a>
+</p>
+
+{% if incidencias %}
+  <ul class="list">
+    {% for inc in incidencias %}
+      <li class="card mb-2">
+        <div class="card-body">
+          <strong>{{ inc.titulo }}</strong>
+          {% if inc.get_status_display %}<small> ({{ inc.get_status_display }})</small>{% endif %}
+          <div class="mt-1">{{ inc.descripcion|linebreaksbr|truncatechars:220 }}</div>
+          {% if inc.foto %}
+            <p class="mt-2"><img src="{{ inc.foto.url }}" alt="foto" style="max-width:280px"></p>
+          {% endif %}
+          <small>Reportado por: {{ inc.reportado_por }} — {{ inc.created_at|date:"d/m/Y H:i" }}</small>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+  {% include "partials/paginator.html" %}
+{% else %}
+  <p>No hay incidencias registradas.</p>
+{% endif %}
+{% endblock %}

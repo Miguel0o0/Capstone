@@ -22,16 +22,24 @@
         <span>Junta UT</span>
       </a>
 
-<ul class="nav-links">
-  {% if request.user.is_authenticated %}
-    {% for item in nav_items %}
-      <li><a href="{{ item.url }}">{{ item.label }}</a></li>
-    {% empty %}
-      <li><span style="color:#888;">Sin opciones</span></li>
-    {% endfor %}
-  {% endif %}
-</ul>
+      <ul class="nav-links">
+        {% if request.user.is_authenticated %}
+          {# Ítems dinámicos construidos en build_nav_items(request) #}
+          {% for item in nav_items %}
+            <li><a href="{{ item.url }}">{{ item.label }}</a></li>
+          {% empty %}
+            <li><span style="color:#888;">Sin opciones</span></li>
+          {% endfor %}
 
+          {# Acceso directo a Inscripciones para management #}
+          {% if perms.core.view_inscriptionevidence %}
+            <li><a href="{% url 'core:insc_admin' %}">Inscripciones</a></li>
+          {% endif %}
+        {% else %}
+          {# CTA público para nuevos vecinos #}
+          <li><a href="{% url 'core:insc_create' %}">Quiero unirme</a></li>
+        {% endif %}
+      </ul>
 
       <div class="nav-actions">
         {% if request.user.is_authenticated %}
@@ -45,7 +53,7 @@
       </div>
     </nav>
 
-    {# Mensajes flash (Django messages) #}
+    {# Mensajes flash #}
     {% if messages %}
       <div class="messages" style="margin:.5rem 1rem;">
         {% for m in messages %}
@@ -62,7 +70,9 @@
   </main>
 
   <footer class="site-footer">
-    <p>© {{ now|date:"Y" }} Junta de Vecinos UT</p>
+    <p>© {% now "Y" %} Junta de Vecinos UT</p>
   </footer>
+
+  {% block extra_body %}{% endblock %}
 </body>
 </html>
