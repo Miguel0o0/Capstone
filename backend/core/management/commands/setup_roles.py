@@ -158,7 +158,7 @@ class Command(BaseCommand):
         grant(
             vecino, "reservation", ["view", "add", "change"]
         )  # sólo sus reservas (filtrar en vistas)
-        grant(vecino, "incident", ["view", "add"])
+        grant(vecino, "incident", ["view", "add", "change", "delete"])
         # sin permisos sobre inscriptionevidence
 
         self.stdout.write(

@@ -3,6 +3,8 @@ from django.urls import path
 
 from . import views
 from .views import (
+    IncidentDeleteView,
+    IncidentUpdateView,
     InscriptionCreateView,
     InscriptionEvidenceListAdminView,
     InscriptionEvidenceManageView,
@@ -21,22 +23,22 @@ urlpatterns = [
     # -----------------------------
     path("avisos/", views.AnnouncementListView.as_view(), name="announcement_list"),
     path(
-        "avisos/<int:pk>/",
-        views.AnnouncementDetailView.as_view(),
-        name="announcement_detail",
-    ),
-    path(
         "avisos/nuevo/",
         views.AnnouncementCreateView.as_view(),
         name="announcement_create",
     ),
     path(
-        "avisos/<int:pk>/editar/",
-        views.AnnouncementUpdateView.as_view(),
-        name="announcement_update",
+        "avisos/<int:pk>/",
+        views.AnnouncementDetailView.as_view(),
+        name="announcement_detail",
     ),
     path(
-        "avisos/<int:pk>/eliminar/",
+        "avisos/<int:pk>/editar/",
+        views.AnnouncementUpdateView.as_view(),
+        name="announcement_edit",
+    ),
+    path(
+        "avisos/<int:pk>/borrar/",
         views.AnnouncementDeleteView.as_view(),
         name="announcement_delete",
     ),
@@ -61,21 +63,6 @@ urlpatterns = [
         name="meeting_delete",
     ),
     # -----------------------------
-    # Actas
-    # -----------------------------
-    path("actas/<int:pk>/", views.MinutesDetailView.as_view(), name="minutes_detail"),
-    path("actas/nueva/", views.MinutesCreateView.as_view(), name="minutes_create"),
-    path(
-        "actas/<int:pk>/editar/",
-        views.MinutesUpdateView.as_view(),
-        name="minutes_update",
-    ),
-    path(
-        "actas/<int:pk>/eliminar/",
-        views.MinutesDeleteView.as_view(),
-        name="minutes_delete",
-    ),
-    # -----------------------------
     # Cuotas (Fees)
     # -----------------------------
     path("fees/", views.FeeListView.as_view(), name="fee_list"),
@@ -85,9 +72,20 @@ urlpatterns = [
     # Pagos (Payments)
     # -----------------------------
     path(
-        "pagos/admin/", views.PaymentListAdminView.as_view(), name="payment_list_admin"
+        "pagos/admin/",
+        views.PaymentListAdminView.as_view(),
+        name="payment_list_admin",
     ),
-    path("mis-pagos/", views.MyPaymentsView.as_view(), name="my_payments"),
+    path(
+        "pagos/admin/nuevo/",
+        views.PaymentCreateAdminView.as_view(),
+        name="payment_create_admin",
+    ),
+    path(
+        "mis-pagos/",
+        views.MyPaymentsView.as_view(),
+        name="my_payments",
+    ),
     path(
         "pagos/nuevo/",
         views.PaymentCreateForResidentView.as_view(),
@@ -97,6 +95,11 @@ urlpatterns = [
         "pagos/<int:pk>/editar/",
         views.PaymentUpdateAdminView.as_view(),
         name="payment_update_admin",
+    ),
+    path(
+        "pagos/<int:pk>/eliminar/",
+        views.PaymentDeleteAdminView.as_view(),
+        name="payment_delete_admin",
     ),
     # -----------------------------
     # 👑 Presidente: Gestión de vecinos
@@ -129,6 +132,21 @@ urlpatterns = [
         views.document_download_view,
         name="documents-download",
     ),
+    path(
+        "documentos/editar/<int:pk>/",
+        views.DocumentUpdateView.as_view(),
+        name="documents-edit",
+    ),
+    path(
+        "documentos/borrar/<int:pk>/",
+        views.DocumentDeleteView.as_view(),
+        name="documents-delete",
+    ),
+    path(
+        "documentos/certificado-residencia/",
+        views.CertificateResidenceView.as_view(),
+        name="cert_residence",
+    ),
     # Incidencias
     path("incidencias/", views.IncidentListPublicView.as_view(), name="incident_list"),
     path(
@@ -148,6 +166,16 @@ urlpatterns = [
         "incidencias/<int:pk>/gestionar/",
         views.IncidentManageView.as_view(),
         name="incident_manage",
+    ),
+    path(
+        "incidencias/<int:pk>/editar/",
+        IncidentUpdateView.as_view(),
+        name="incident_update",
+    ),
+    path(
+        "incidencias/<int:pk>/eliminar/",
+        IncidentDeleteView.as_view(),
+        name="incident_delete",
     ),
     # Reserva de Recursos
     # Reservas

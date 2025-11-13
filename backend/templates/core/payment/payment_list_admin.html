@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load auth_extras %}  {# para usar has_group #}
+
+{% block title %}Gestión de pagos{% endblock %}
+
+{% block content %}
+  <h1>
+    {% if user|has_group:"Delegado" %}
+      Pagos
+    {% else %}
+      Pagos (admin)
+    {% endif %}
+  </h1>
+
+  {# Barra de acciones arriba de la lista #}
+  <p>
+    {# Tesorero / Admin / Presidente: pueden crear pagos manualmente #}
+    {% if perms.core.add_payment %}
+      <a class="btn btn-primary" href="{% url 'core:payment_create_admin' %}">
+        Crear pago
+      </a>
+    {% endif %}
+
+    {# Delegado o Tesorero: botón para "realizar pago" de SUS propias deudas #}
+    {% if user|has_group:"Delegado" or user|has_group:"Tesorero" %}
+      <a class="btn" href="{% url 'core:payment_create' %}">
+        Realizar pago
+      </a>
+    {% endif %}
+  </p>
+
+  <form method="get">
+    <label for="period">Periodo: [YYYY-MM]</label>
+    <input type="text" name="period" id="period" value="{{ request.GET.period }}">
+    <button type="submit">Filtrar</button>
+    <a href="{% url 'core:payment_list_admin' %}">Limpiar</a>
+  </form>
+
+  <ul>
+    {% for p in object_list %}
+      <li>
+        {# Usuario y rol principal #}
+        {% with user_obj=p.resident %}
+          {% with first_group=user_obj.groups.first %}
+            {{ user_obj.username }}
+            {% if first_group %}
+              ({{ first_group.name }})
+            {% else %}
+              (Vecino)
+            {% endif %}
+          {% endwith %}
+        {% endwith %}
+
+        — {{ p.fee.period }} — ${{ p.amount }} — {{ p.get_status_display }}
+        {% if p.paid_at %}
+          — Pagado {{ p.paid_at|date:"Y-m-d H:i" }}
+        {% endif %}
+
+        {# Solo Tesorero/Admin/Presidente (tienen change_payment) ven Editar/Eliminar #}
+        {% if perms.core.change_payment %}
+          — <a href="{% url 'core:payment_update_admin' p.pk %}">Editar</a>
+
+          {% if perms.core.delete_payment %}
+            — <form method="post"
+                   action="{% url 'core:payment_delete_admin' p.pk %}"
+                   style="display:inline;">
+                {% csrf_token %}
+                <button type="submit"
+                        onclick="return confirm('¿Seguro que deseas borrar este pago?');">
+                  Borrar
+                </button>
+              </form>
+          {% endif %}
+        {% endif %}
+      </li>
+    {% empty %}
+      <li>No hay pagos registrados para este período.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

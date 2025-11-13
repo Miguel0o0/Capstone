@@ -1,6 +1,9 @@
 # backend/core/views.py
 import os
+from io import BytesIO
 
+from django import forms
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import (
@@ -8,10 +11,14 @@ from django.contrib.auth.mixins import (
     PermissionRequiredMixin,
     UserPassesTestMixin,
 )
+from django.core.mail import EmailMessage
 from django.db.models import Q
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.utils.text import slugify
 from django.utils.timezone import now
 from django.views.generic import (
     CreateView,
@@ -23,11 +30,12 @@ from django.views.generic import (
 )
 
 from .context_processors import nav_items as build_nav_from_cp
-from .forms import IncidentForm  # (admin)
 from .forms import IncidentResidentForm  # (vecino)
 from .forms import PaymentForm  # (admin)
 from .forms import ResidentPaymentStartForm  # (vecino paso 1)
 from .forms import (
+    AdminPaymentForm,
+    AnnouncementForm,
     DocumentForm,
     IncidentManageForm,
     InscriptionCreateForm,
@@ -51,6 +59,14 @@ from .models import (
     Resource,
 )
 
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+
+    REPORTLAB_AVAILABLE = True
+except Exception:
+    REPORTLAB_AVAILABLE = False
+
 
 # ------------------------------------------------
 # Menú dinámico (nav_items)
@@ -61,54 +77,55 @@ def has_any_perm(user, perms):
 
 
 def build_nav_items(request):
-    """Construye la lista de ítems del menú según el usuario/permiso."""
     items = []
     u = request.user
-    if not u.is_authenticated:
-        return items
+    is_admin_or_secret = (
+        u.is_superuser or u.groups.filter(name__in=["Admin", "Secretario"]).exists()
+    )
+    is_president = u.groups.filter(name="Presidente").exists()
+    is_delegate = u.groups.filter(name="Delegado").exists()
+    is_management = is_admin_or_secret or is_president  # mesa + presidente
 
-    # Comunes a toda persona autenticada
+    # --- Comunes a cualquier autenticado ---
     items.append({"label": "Avisos", "url": reverse("core:announcement_list")})
     items.append({"label": "Reuniones", "url": reverse("core:meeting_list")})
-    items.append({"label": "Mis pagos", "url": reverse("core:my_payments")})
-    items.append({"label": "Documentos", "url": reverse("core:documents-list")})
-    items.append({"label": "Incidencias", "url": reverse("core:incident_list")})
+    items.append({"label": "Mis pagos", "url": reverse("core:payment_list_mine")})
+    items.append({"label": "Incidencias", "url": reverse("core:incident_mine")})
     items.append({"label": "Reservas", "url": reverse("core:reservation_mine")})
+    items.append({"label": "Documentos", "url": reverse("core:documents-list")})
 
-    # Gestión (superuser / Admin / Secretario / Presidente)
-    if is_management_user(u):
+    # --- Gestión (no para Delegado ni Vecino) ---
+    if is_management and not is_delegate:
         items.append({"label": "Panel", "url": reverse("core:dashboard")})
 
-        if has_any_perm(u, ["core.view_fee", "core.add_fee", "core.change_fee"]):
-            items.append({"label": "Cuotas", "url": reverse("core:fee_list")})
+        if (
+            u.has_perm("core.view_fee")
+            or u.has_perm("core.add_fee")
+            or u.has_perm("core.change_fee")
+        ):
+            items.append({"label": "Cuotas (admin)", "url": reverse("core:fee_list")})
 
         if u.has_perm("core.view_payment"):
             items.append(
                 {"label": "Pagos (admin)", "url": reverse("core:payment_list_admin")}
             )
 
-        items.append(
-            {"label": "Subir documento", "url": reverse("core:documents-create")}
-        )
+        # << ESTA ES LA LÍNEA QUE OCULTA A VECINO: solo management con permiso >>
+        if u.has_perm("core.view_reservation"):
+            items.append(
+                {
+                    "label": "Reservas (admin)",
+                    "url": reverse("core:reservation_list_admin"),
+                }
+            )
 
-    # Presidencia (ver vecinos). No implica change_resident.
-    if (u.is_superuser or u.groups.filter(name="Presidente").exists()) and u.has_perm(
-        "core.view_resident"
-    ):
-        items.append(
-            {"label": "Presidencia", "url": reverse("core:president_residents")}
-        )
+        # Subir documento (si corresponde)
+        if u.has_perm("core.add_document") or u.has_perm("core.change_document"):
+            items.append(
+                {"label": "Subir documento", "url": reverse("core:documents-create")}
+            )
 
-    # Incidencias / Reservas admin visibles solo si puede CAMBIAR
-    if u.has_perm("core.change_incident"):
-        items.append(
-            {"label": "Incidencias (admin)", "url": reverse("core:incident_admin")}
-        )
-    if u.has_perm("core.change_reservation"):
-        items.append(
-            {"label": "Reservas (admin)", "url": reverse("core:reservation_admin")}
-        )
-
+    # Puedes mantener aquí cualquier otro menú condicional (Presidencia, etc.)
     return items
 
 
@@ -198,30 +215,49 @@ def dashboard(request):
 # ----------------------------
 # Anuncios (Announcements)
 # ----------------------------
-class AnnouncementListView(NavItemsMixin, LoginRequiredMixin, ListView):
+class AnnouncementForm(forms.ModelForm):
+    class Meta:
+        model = Announcement
+        fields = ["titulo", "cuerpo", "visible_hasta"]
+        widgets = {
+            # selector nativo de fecha
+            "visible_hasta": forms.DateInput(attrs={"type": "date"}),
+        }
+
+
+class IsAnnouncementManagerMixin(UserPassesTestMixin):
+    """Permite a Admin/Secretario/Delegado (o quien tenga add/change) crear/editar avisos."""
+
+    raise_exception = True  # 403 en vez de redirigir
+
+    def test_func(self):
+        u = self.request.user
+        if not u.is_authenticated:
+            return False
+        # Usa permisos, que ya reflejan tus grupos (Admin/Secretario/Delegado)
+        return u.has_perm("core.add_announcement") or u.has_perm(
+            "core.change_announcement"
+        )
+
+
+class AnnouncementListView(LoginRequiredMixin, ListView):
     model = Announcement
-    template_name = "core/announcement_list.html"
+    template_name = "core/announcement/announcement_list.html"  # ver sección 3
     context_object_name = "avisos"
 
-    def get_queryset(self):
-        qs = super().get_queryset()
-        today = now().date()
-        return qs.filter(Q(visible_hasta__isnull=True) | Q(visible_hasta__gte=today))
 
-
-class AnnouncementDetailView(NavItemsMixin, LoginRequiredMixin, DetailView):
+class AnnouncementDetailView(LoginRequiredMixin, DetailView):
     model = Announcement
-    template_name = "core/announcement_detail.html"
+    template_name = "core/announcement/announcement_detail.html"
     context_object_name = "aviso"
 
 
 class AnnouncementCreateView(
-    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView
+    LoginRequiredMixin, IsAnnouncementManagerMixin, CreateView
 ):
-    permission_required = "core.add_announcement"
     model = Announcement
-    fields = ["titulo", "cuerpo", "visible_hasta"]
-    template_name = "core/announcement_form.html"
+    form_class = AnnouncementForm
+    template_name = "core/announcement/announcement_form.html"
     success_url = reverse_lazy("core:announcement_list")
 
     def form_valid(self, form):
@@ -230,21 +266,19 @@ class AnnouncementCreateView(
 
 
 class AnnouncementUpdateView(
-    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+    LoginRequiredMixin, IsAnnouncementManagerMixin, UpdateView
 ):
-    permission_required = "core.change_announcement"
     model = Announcement
-    fields = ["titulo", "cuerpo", "visible_hasta"]
-    template_name = "core/announcement_form.html"
+    form_class = AnnouncementForm
+    template_name = "core/announcement/announcement_form.html"
     success_url = reverse_lazy("core:announcement_list")
 
 
 class AnnouncementDeleteView(
-    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, DeleteView
+    LoginRequiredMixin, IsAnnouncementManagerMixin, DeleteView
 ):
-    permission_required = "core.delete_announcement"
     model = Announcement
-    template_name = "core/announcement_confirm_delete.html"
+    template_name = "core/announcement/announcement_confirm_delete.html"
     success_url = reverse_lazy("core:announcement_list")
 
 
@@ -368,7 +402,7 @@ class PaymentListAdminView(
 ):
     permission_required = "core.view_payment"
     model = Payment
-    template_name = "core/payment_list_admin.html"
+    template_name = "core/payment/payment_list_admin.html"
     context_object_name = "payments"
 
     def get_queryset(self):
@@ -386,7 +420,7 @@ class PaymentListAdminView(
 
 class MyPaymentsView(NavItemsMixin, LoginRequiredMixin, ListView):
     model = Payment
-    template_name = "core/payment_list_mine.html"
+    template_name = "core/payment/payment_list_mine.html"
     context_object_name = "payments"
 
     def get_queryset(self):
@@ -404,7 +438,9 @@ class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, CreateView
 
     model = Payment
     form_class = ResidentPaymentStartForm
-    template_name = "core/payment_start_form.html"  # plantilla simple de selección
+    template_name = (
+        "core//payment/payment_start_form.html"  # plantilla simple de selección
+    )
     success_url = reverse_lazy("core:my_payments")  # por ahora volvemos a la lista
 
     def get_form_kwargs(self):
@@ -424,21 +460,57 @@ class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, CreateView
         return super().form_valid(form)
 
 
+class PaymentCreateAdminView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView
+):
+    """
+    Vista para que Tesorero/Presidente/Admin creen pagos manualmente.
+    """
+
+    permission_required = "core.add_payment"
+    model = Payment
+    form_class = AdminPaymentForm
+    template_name = "core/payment/payment_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Para que el template sepa que está en modo administración
+        context["is_admin_payment"] = True
+        return context
+
+    def get_success_url(self):
+        return reverse_lazy("core:payment_list_admin")
+
+
+# --- Pagos: edición Tesorería/Admin ---
 class PaymentUpdateAdminView(
     NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
 ):
     permission_required = "core.change_payment"
     model = Payment
     form_class = PaymentForm
-    template_name = "core/payment_form.html"
+    template_name = "core/payment/payment_form.html"
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["request"] = self.request
         return kwargs
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_admin_payment"] = True
+        return context
+
     def get_success_url(self):
         return reverse_lazy("core:payment_list_admin")
+
+
+# --- Pagos: borrado Tesorería/Admin ---
+class PaymentDeleteAdminView(LoginRequiredMixin, PermissionRequiredMixin, DeleteView):
+    model = Payment
+    template_name = "core/payment/payment_confirm_delete.html"
+    permission_required = "core.delete_payment"
+    success_url = reverse_lazy("core:payment_list_admin")
 
 
 # ------------------------------------------------
@@ -516,35 +588,48 @@ class PresidentResidentToggleActiveView(
 # ------------------------------------------------
 # Documentos (listar, crear, descargar)
 # ------------------------------------------------
-class DocumentListView(NavItemsMixin, ListView):
-    """
-    Listado de documentos con búsqueda y filtro por categoría.
-    Acceso público: si no está autenticado, solo ve PUBLICO.
-    """
-
+class DocumentListView(NavItemsMixin, LoginRequiredMixin, ListView):
     model = Document
     template_name = "core/documents/list.html"
     context_object_name = "docs"
-    paginate_by = 12
+    paginate_by = 20
 
     def get_queryset(self):
-        qs = Document.objects.filter(
-            is_active=True,
-            visibilidad__in=allowed_visibility_for(self.request.user),
-        )
-        q = self.request.GET.get("q")
+        qs = Document.objects.filter(is_active=True).order_by("-created_at")
+
+        u = self.request.user
+
+        # Si no está autenticado: sólo documentos públicos
+        if not u.is_authenticated:
+            return qs.filter(visibilidad=Document.Visibility.PUBLICO)
+
+        # Vecinos y cualquier usuario NO staff:
+        if not (u.is_staff or u.has_perm("core.view_all_documents")):
+            qs = qs.filter(
+                visibilidad__in=[
+                    Document.Visibility.PUBLICO,
+                    Document.Visibility.RESIDENTES,
+                ]
+            )
+        # Staff (admin/secretario/presidente con permisos) ve todo.
+
+        # Filtro de búsqueda
+        q = (self.request.GET.get("q") or "").strip()
         if q:
             qs = qs.filter(Q(titulo__icontains=q) | Q(descripcion__icontains=q))
+
+        # Filtro por categoría
         cat = self.request.GET.get("cat")
         if cat:
             qs = qs.filter(categoria_id=cat)
-        return qs.select_related("categoria", "subido_por").order_by("-created_at")
+
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["categorias"] = DocumentCategory.objects.order_by("nombre")
-        ctx["q"] = self.request.GET.get("q", "") or ""
-        ctx["cat_selected"] = self.request.GET.get("cat", "") or ""
+        ctx["q"] = (self.request.GET.get("q") or "").strip()
+        ctx["cat_selected"] = self.request.GET.get("cat") or ""
+        ctx["categorias"] = DocumentCategory.objects.all().order_by("nombre")
         return ctx
 
 
@@ -583,13 +668,153 @@ def document_download_view(request, pk: int):
     return FileResponse(open(path, "rb"), as_attachment=True, filename=doc.filename)
 
 
+class IsDocsManagerMixin(UserPassesTestMixin):
+    """Usuarios que pueden gestionar documentos (crear/editar)."""
+
+    raise_exception = True
+
+    def test_func(self):
+        u = self.request.user
+        return u.is_authenticated and (
+            u.has_perm("core.add_document") or u.has_perm("core.change_document")
+        )
+
+
+class DocumentUpdateView(
+    NavItemsMixin, LoginRequiredMixin, IsDocsManagerMixin, UpdateView
+):
+    model = Document
+    form_class = DocumentForm
+    template_name = "core/documents/form.html"
+    success_url = reverse_lazy("core:documents-list")
+
+
+class DocumentDeleteView(
+    NavItemsMixin, LoginRequiredMixin, UserPassesTestMixin, DeleteView
+):
+    model = Document
+    template_name = "core/documents/confirm_delete.html"
+    success_url = reverse_lazy("core:documents-list")
+    raise_exception = True
+
+    def test_func(self):
+        u = self.request.user
+        return u.is_authenticated and u.has_perm("core.delete_document")
+
+
+# ---------------------------
+# Certificado de residencia
+# ---------------------------
+class CertificateResidenceForm(forms.Form):
+    nombre = forms.CharField(label="Nombre completo", max_length=120)
+    rut = forms.CharField(label="RUT", max_length=20)
+    direccion = forms.CharField(label="Dirección", max_length=180)
+    comuna = forms.CharField(label="Comuna", max_length=80)
+    motivo = forms.CharField(label="Motivo", max_length=120, required=False)
+    enviar_email = forms.BooleanField(label="Enviar a mi correo", required=False)
+
+
+class CertificateResidenceView(NavItemsMixin, LoginRequiredMixin, View):
+    template_name = "core/documents/cert_residence_form.html"
+
+    def get(self, request):
+        form = CertificateResidenceForm(
+            initial={
+                "nombre": getattr(request.user, "first_name", "")
+                + " "
+                + getattr(request.user, "last_name", ""),
+            }
+        )
+        return render(request, self.template_name, {"form": form})
+
+    def post(self, request):
+        form = CertificateResidenceForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form})
+
+        data = form.cleaned_data
+
+        # 1) Generar PDF simple (ReportLab) o fallback HTML
+        filename = f"certificado_residencia_{slugify(data['nombre'])}.pdf"
+        pdf_bytes = None
+
+        if REPORTLAB_AVAILABLE:
+            buffer = BytesIO()
+            c = canvas.Canvas(buffer, pagesize=A4)
+            text = c.beginText(60, 790)
+            text.setFont("Helvetica", 12)
+            lines = [
+                "CERTIFICADO DE RESIDENCIA",
+                "",
+                f"Nombre        : {data['nombre']}",
+                f"RUT           : {data['rut']}",
+                f"Dirección     : {data['direccion']}, {data['comuna']}",
+                f"Motivo        : {data.get('motivo') or 'No especificado'}",
+                "",
+                "La Junta de Vecinos certifica que los datos anteriores corresponden a",
+                "un vecino inscrito y con domicilio dentro de la jurisdicción.",
+                "",
+                f"Emitido el {now().strftime('%d/%m/%Y %H:%M')}.",
+            ]
+            for ln in lines:
+                text.textLine(ln)
+            c.drawText(text)
+            c.showPage()
+            c.save()
+            pdf_bytes = buffer.getvalue()
+            buffer.close()
+
+        # 2) Enviar por email si lo pidió
+        if data.get("enviar_email") and getattr(request.user, "email", None):
+            try:
+                email = EmailMessage(
+                    subject="Certificado de residencia",
+                    body="Adjuntamos su certificado de residencia.",
+                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                    to=[request.user.email],
+                )
+                if pdf_bytes:
+                    email.attach(filename, pdf_bytes, "application/pdf")
+                else:
+                    # Fallback con HTML si no hay reportlab
+                    html_body = render_to_string(
+                        "core/documents/cert_residence_email.html", {"data": data}
+                    )
+                    email.content_subtype = "html"
+                    email.body = html_body
+                email.send(fail_silently=True)
+                messages.success(request, "Enviamos el certificado a tu correo.")
+            except Exception:
+                messages.warning(
+                    request,
+                    "No se pudo enviar el email. Descárgalo desde el navegador.",
+                )
+
+        # 3) Descargar en el navegador
+        if pdf_bytes:
+            return FileResponse(
+                BytesIO(pdf_bytes), as_attachment=True, filename=filename
+            )
+        else:
+            # Fallback: mostrar HTML (el usuario puede imprimir a PDF)
+            html = render_to_string(
+                "core/documents/cert_residence_fallback.html", {"data": data}
+            )
+            return render(
+                request, "core/documents/cert_residence_fallback.html", {"data": data}
+            )
+
+
 # ------------------------------------------------
 # Incidencias
 # ------------------------------------------------
 class IncidentListMineView(NavItemsMixin, LoginRequiredMixin, ListView):
     """
-    Vecino: ve incidencias de toda la comunidad (no solo las suyas),
-    con posibilidad de filtrar por estado.
+    Página de 'Mis incidencias'.
+
+    - Vecino: ve SOLO las incidencias que él reportó.
+    - Delegado / Admin / Secretario / Presidente / Tesorero / superuser:
+      ven TODAS las incidencias de la comunidad.
     """
 
     model = Incident
@@ -598,16 +823,16 @@ class IncidentListMineView(NavItemsMixin, LoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Incident.objects.all()
+        qs = Incident.objects.all().select_related("categoria", "reportado_por")
         estado = self.request.GET.get("estado")
         if estado in dict(Incident.Status.choices):
             qs = qs.filter(status=estado)
-        return qs.select_related("categoria", "reportado_por").order_by("-created_at")
+        return qs.order_by("-created_at")
 
 
 class IncidentCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
     """
-    Vecino: formulario simplificado (sin categoría).
+    Vecino: formulario simplificado.
     """
 
     model = Incident
@@ -663,6 +888,75 @@ class IncidentListPublicView(NavItemsMixin, LoginRequiredMixin, ListView):
         )
 
 
+class IncidentUpdateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
+):
+    """
+    Editar incidencia desde la vista de 'Mis incidencias'.
+
+    - Delegado / mesa / superuser: pueden editar cualquier incidencia.
+    - Vecino: solo puede editar incidencias que él mismo reportó.
+    """
+
+    permission_required = "core.change_incident"
+    model = Incident
+    form_class = IncidentResidentForm  # usamos el mismo formulario sencillo del vecino
+    template_name = "core/incidents/form_resident.html"
+    success_url = reverse_lazy("core:incident_mine")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        u = self.request.user
+
+        # Roles de gestión: pueden editar cualquier incidencia
+        if (
+            u.is_superuser
+            or u.groups.filter(
+                name__in=["Admin", "Secretario", "Presidente", "Tesorero", "Delegado"]
+            ).exists()
+        ):
+            return qs
+
+        # Vecino: solo puede editar incidencias reportadas por él
+        return qs.filter(reportado_por=u)
+
+    def form_valid(self, form):
+        messages.success(self.request, "Incidencia actualizada correctamente.")
+        return super().form_valid(form)
+
+
+class IncidentDeleteView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, DeleteView
+):
+    """
+    Eliminar incidencia desde 'Mis incidencias'.
+
+    - Delegado / mesa / superuser: pueden borrar cualquier incidencia.
+    - Vecino: solo puede borrar incidencias que él mismo reportó.
+    """
+
+    permission_required = "core.delete_incident"
+    model = Incident
+    template_name = "core/incidents/incident_confirm_delete.html"
+    success_url = reverse_lazy("core:incident_mine")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        u = self.request.user
+
+        # Roles de gestión: pueden borrar cualquier incidencia
+        if (
+            u.is_superuser
+            or u.groups.filter(
+                name__in=["Admin", "Secretario", "Presidente", "Tesorero", "Delegado"]
+            ).exists()
+        ):
+            return qs
+
+        # Vecino: solo puede borrar incidencias reportadas por él
+        return qs.filter(reportado_por=u)
+
+
 class IncidentManageView(
     NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
 ):
@@ -694,14 +988,22 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        qs = Reservation.objects.filter(requested_by=self.request.user)
-        estado = self.request.GET.get("estado")
-        recurso = self.request.GET.get("recurso")
-        if estado in dict(Reservation.Status.choices):
-            qs = qs.filter(status=estado)
-        if recurso:
-            qs = qs.filter(resource_id=recurso)
-        return qs.select_related("resource").order_by("-start_at")
+        user = self.request.user
+
+        # Base: traemos recurso y usuario para evitar queries extra
+        qs = Reservation.objects.select_related("resource", "requested_by")
+
+        # Usuarios de gestión (ven TODAS las reservas)
+        grupos_gestion = ["Delegado", "Tesorero", "Secretario", "Presidente"]
+        es_gestion = (
+            user.is_superuser or user.groups.filter(name__in=grupos_gestion).exists()
+        )
+
+        if es_gestion:
+            return qs.order_by("-start_at")
+
+        # Vecino (u otro rol no gestión): solo ve sus reservas
+        return qs.filter(requested_by=user).order_by("-start_at")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -729,17 +1031,26 @@ class ReservationCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class ReservationCancelView(NavItemsMixin, LoginRequiredMixin, View):
+class ReservationCancelView(LoginRequiredMixin, View):
     def post(self, request, pk):
-        r = get_object_or_404(Reservation, pk=pk, requested_by=request.user)
-        if r.status in (Reservation.Status.PENDING, Reservation.Status.APPROVED):
-            r.status = Reservation.Status.CANCELLED
-            r.cancelled_at = now()
-            r.save(update_fields=["status", "cancelled_at", "updated_at"])
-            messages.success(request, "Reserva cancelada.")
-        else:
-            messages.error(request, "No es posible cancelar esta reserva.")
-        return redirect("core:reservation_mine")
+        reserva = get_object_or_404(Reservation, pk=pk)
+
+        # 👇 Solo quien creó la reserva puede cancelarla
+        if reserva.requested_by != request.user:
+            return HttpResponseForbidden(
+                "No puedes cancelar reservas de otros usuarios."
+            )
+
+        if reserva.status in [
+            Reservation.Status.PENDING,
+            Reservation.Status.APPROVED,
+        ]:
+            reserva.status = Reservation.Status.CANCELLED
+            reserva.cancelled_at = timezone.now()
+            reserva.save()
+
+        messages.success(request, "Reserva cancelada.")
+        return redirect("core:reservation_list_mine")
 
 
 class ReservationListAdminView(

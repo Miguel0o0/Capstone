@@ -138,10 +138,12 @@ class Payment(models.Model):
     # --- constantes y choices ---
     STATUS_PENDING = "pending"
     STATUS_PAID = "paid"
+    STATUS_CANCELLED = "cancelled"  # <- nuevo estado
 
     STATUS_CHOICES = (
         (STATUS_PENDING, "Pendiente"),
         (STATUS_PAID, "Pagado"),
+        (STATUS_CANCELLED, "Cancelado"),  # <- visible en el select
     )
 
     # --- campos ---
@@ -154,7 +156,10 @@ class Payment(models.Model):
     fee = models.ForeignKey(Fee, on_delete=models.CASCADE, related_name="payments")
     amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
     status = models.CharField(
-        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING
+        "Estado",  # <- cambia la etiqueta del formulario
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
     )
     paid_at = models.DateTimeField("Fecha de pago", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -284,10 +289,29 @@ def validate_image_size(f):
 
 
 def incident_upload_to(instance, filename):
-    ext = filename.split(".")[-1].lower()
-    return os.path.join(
-        "incidencias", f"{instance.created_at:%Y/%m}", f"{uuid.uuid4().hex}.{ext}"
-    )
+    """
+    Ruta para las fotos de incidencias.
+
+    No depende de created_at (que todavía es None cuando se crea).
+    Usa:
+      - id del usuario que reporta (o 'anon' si no hay)
+      - fecha/hora actual
+      - un uuid para evitar colisiones
+    """
+    # extensión del archivo
+    ext = (filename.rsplit(".", 1)[-1] or "").lower()
+
+    # id del usuario que reporta, o 'anon' como fallback
+    user_id = getattr(getattr(instance, "reportado_por", None), "id", "anon")
+
+    # fecha/hora actual
+    dt = timezone.now()
+
+    # nombre de archivo único
+    new_name = f"{dt:%Y%m%d_%H%M%S}_{uuid.uuid4().hex}.{ext}"
+
+    # quedaría algo como: incidencias/3/20251112_221800_abcd1234.jpg
+    return os.path.join("incidencias", str(user_id), new_name)
 
 
 class IncidentCategory(models.Model):
@@ -361,14 +385,8 @@ class Incident(models.Model):
         verbose_name_plural = "Incidencias"
 
     def __str__(self):
+        # Ya no usamos esto en la lista, pero lo dejo por si lo ves en admin
         return f"[{self.get_status_display()}] {self.titulo}"
-
-
-def incident_upload_to(instance, filename):
-    # usa fallback si created_at aún no existe
-    ext = filename.split(".")[-1].lower()
-    dt = getattr(instance, "created_at", None) or timezone.now()
-    return os.path.join("incidencias", f"{dt:%Y/%m}", f"{uuid.uuid4().hex}.{ext}")
 
 
 class ResourceCategory(models.Model):
@@ -462,15 +480,26 @@ class Reservation(models.Model):
         return f"{self.resource} · {self.title} · {self.start_at:%Y-%m-%d %H:%M}"
 
     def clean(self):
+        # Si falta alguno de estos datos, no validamos todavía
+        if not self.start_at or not self.end_at:
+            return
+
         if self.start_at >= self.end_at:
             raise ValidationError(
                 "La fecha/hora de inicio debe ser menor que la de término."
             )
+
+        # OJO: usamos resource_id para no disparar el descriptor .resource
+        if not self.resource_id:
+            return
+
         qs = Reservation.objects.filter(
-            resource=self.resource,
+            resource_id=self.resource_id,
             status__in=[Reservation.Status.PENDING, Reservation.Status.APPROVED],
         ).exclude(pk=self.pk)
+
         qs = qs.filter(start_at__lt=self.end_at, end_at__gt=self.start_at)
+
         if qs.exists():
             raise ValidationError("El recurso ya está reservado en ese intervalo.")
 

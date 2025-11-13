@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 
 from .models import (
+    Announcement,
     Document,
     Fee,
     Incident,
@@ -15,6 +16,18 @@ from .models import (
 )
 
 _DT_FMT = "%Y-%m-%dT%H:%M"  # para <input type="datetime-local">
+
+
+# -------------------------------------------------
+# ANUNCIOS
+# -------------------------------------------------
+class AnnouncementForm(forms.ModelForm):
+    class Meta:
+        model = Announcement
+        fields = ["titulo", "cuerpo", "visible_hasta"]
+        widgets = {
+            "visible_hasta": forms.DateInput(attrs={"type": "date"}),
+        }
 
 
 # -------------------------------------------------
@@ -54,6 +67,28 @@ class PaymentForm(forms.ModelForm):
                 ).distinct()
 
         self.fields["fee"].queryset = qs
+
+
+# ⬇⬇⬇ NUEVO FORMULARIO PARA TESORERO / ADMIN ⬇⬇⬇
+class AdminPaymentForm(forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ["resident", "fee", "amount", "status", "paid_at"]
+        labels = {
+            "resident": "Vecino / usuario",
+            "fee": "Cuota",
+            "amount": "Monto",
+            "status": "Estado",
+            "paid_at": "Fecha de pago",
+        }
+        widgets = {
+            # date si quieres solo fecha, sin hora:
+            "paid_at": forms.DateInput(attrs={"type": "date"}),
+            # si prefieres fecha + hora, usa:
+            # "paid_at": forms.DateTimeInput(
+            #     attrs={"type": "datetime-local"}
+            # ),
+        }
 
 
 class ResidentPaymentStartForm(forms.ModelForm):
@@ -217,20 +252,46 @@ class ReservationForm(forms.ModelForm):
             self.fields["title"].required = False
             self.fields["notes"].required = False
 
+        elif selected_tipo == "cancha_futbol":
+            canchas_qs = base_qs.filter(
+                Q(nombre__icontains="futbol") | Q(nombre__icontains="fútbol")
+            )
+            self.fields["resource"].queryset = canchas_qs
+            self.fields["resource"].empty_label = "— Selecciona una cancha —"
+            self.fields["resource"].label = "Cancha de fútbol"
+
+            self.fields["title"].required = False
+            self.fields["notes"].required = False
+
+        elif selected_tipo == "cancha_basquet":
+            canchas_qs = base_qs.filter(
+                Q(nombre__icontains="basquet") | Q(nombre__icontains="básquet")
+            )
+            self.fields["resource"].queryset = canchas_qs
+            self.fields["resource"].empty_label = "— Selecciona una cancha —"
+            self.fields["resource"].label = "Cancha de básquetbol"
+
+            self.fields["title"].required = False
+            self.fields["notes"].required = False
+
+        elif selected_tipo == "cancha_padel":
+            canchas_qs = base_qs.filter(nombre__icontains="padel")
+            self.fields["resource"].queryset = canchas_qs
+            self.fields["resource"].empty_label = "— Selecciona una cancha —"
+            self.fields["resource"].label = "Cancha de pádel"
+
+            self.fields["title"].required = False
+            self.fields["notes"].required = False
+
         else:
-            # CANCHAS: por mientras mostramos solo las "disponibles" (ej.: 2 y 4)
-            # TODO: reemplazar por disponibilidad real contra la tabla Reservation
-            canchas_qs = base_qs.filter(nombre__icontains="cancha").filter(
-                Q(nombre__icontains=" 2")
-                | Q(nombre__icontains=" 4")
-                | Q(nombre__icontains="2 ")
-                | Q(nombre__icontains="4 ")
+            # fallback: cualquier recurso que no sea salón
+            canchas_qs = base_qs.exclude(
+                Q(nombre__icontains="salon") | Q(nombre__icontains="salón")
             )
             self.fields["resource"].queryset = canchas_qs
             self.fields["resource"].empty_label = "— Selecciona una cancha —"
             self.fields["resource"].label = "Cancha número"
 
-            # No exigimos título/nota en canchas
             self.fields["title"].required = False
             self.fields["notes"].required = False
 
@@ -246,8 +307,15 @@ class ReservationForm(forms.ModelForm):
         start_time = cleaned.get("start_time")
         if start_date and start_time:
             start_dt = datetime.combine(start_date, start_time)
+            end_dt = start_dt + timedelta(hours=1)
+
+            # Guardamos en cleaned
             cleaned["start_at"] = start_dt
-            cleaned["end_at"] = start_dt + timedelta(hours=1)
+            cleaned["end_at"] = end_dt
+
+            # Y también en la instancia, para que Reservation.clean() funcione bien
+            self.instance.start_at = start_dt
+            self.instance.end_at = end_dt
         else:
             raise ValidationError("Debes indicar fecha y hora de la reserva.")
 
@@ -270,11 +338,31 @@ class ReservationForm(forms.ModelForm):
                 )
                 if salon:
                     cleaned["resource"] = salon
+                    self.instance.resource = salon
+            else:
+                self.instance.resource = resource
+
+        else:
+            # Para canchas, si hay resource lo seteamos en la instancia
+            if resource:
+                self.instance.resource = resource
+
+            # Si el vecino no escribió título, generamos uno automático
+            if not title:
+                if resource:
+                    auto_title = f"Uso {resource.nombre}"
+                else:
+                    auto_title = "Reserva de cancha"
+                cleaned["title"] = auto_title
+                self.instance.title = auto_title
+            else:
+                # Si sí escribió título, lo guardamos en la instancia
+                self.instance.title = title
 
         # Validar solape (disponibilidad real)
         start = cleaned.get("start_at")
         end = cleaned.get("end_at")
-        resource = cleaned.get("resource")
+        resource = cleaned.get("resource") or self.instance.resource
         if resource and start and end:
             conflict = Reservation.objects.filter(
                 resource=resource,
@@ -289,6 +377,25 @@ class ReservationForm(forms.ModelForm):
                 )
 
         return cleaned
+
+    def save(self, commit=True):
+        """
+        Asigna start_at y end_at en la instancia del modelo
+        usando start_date + start_time antes de guardar.
+        """
+        instance = super().save(commit=False)
+
+        start_date = self.cleaned_data.get("start_date")
+        start_time = self.cleaned_data.get("start_time")
+        if start_date and start_time:
+            start_dt = datetime.combine(start_date, start_time)
+            instance.start_at = start_dt
+            instance.end_at = start_dt + timedelta(hours=1)
+
+        if commit:
+            instance.save()
+
+        return instance
 
 
 class ReservationManageForm(forms.ModelForm):

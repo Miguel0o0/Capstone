@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load auth_extras %}
+
+{% block content %}
+<h1>Avisos</h1>
+
+{% if perms.core.add_announcement %}
+  <p><a class="btn btn-primary" href="{% url 'core:announcement_create' %}">Nuevo aviso</a></p>
+{% endif %}
+
+<ul class="list">
+  {% for a in avisos %}
+    <li style="margin-bottom:.5rem">
+      <a href="{% url 'core:announcement_detail' a.pk %}"><strong>{{ a.titulo }}</strong></a>
+      <small> · {{ a.creado_en|date:"Y-m-d H:i" }}</small>
+      {% if a.visible_hasta %}<small> (visible hasta {{ a.visible_hasta }})</small>{% endif %}
+
+      {% if perms.core.change_announcement %}
+        · <a href="{% url 'core:announcement_edit' a.pk %}">Editar</a>
+      {% endif %}
+      {% if perms.core.delete_announcement %}
+        · <a href="{% url 'core:announcement_delete' a.pk %}">Borrar</a>
+      {% endif %}
+    </li>
+  {% empty %}
+    <li>No hay avisos.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

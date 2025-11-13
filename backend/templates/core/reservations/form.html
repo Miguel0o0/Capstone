@@ -46,9 +46,6 @@
         {% if form.start_time.errors %}<div class="error">{{ form.start_time.errors }}</div>{% endif %}
       </div>
 
-      {# Campos ocultos reales del modelo #}
-      {{ form.start_at }} {{ form.end_at }}
-
       {# Título/Notas solo para SALÓN #}
       <div id="salon-extra" style="display:none">
         <div class="form-row">
@@ -69,11 +66,12 @@
       {% endif %}
 
       <p class="muted">
-        Nota: por ahora la duración es de 1 hora. Si el horario está ocupado te avisaremos. Más adelante
-        sumamos disponibilidad en vivo y reglas por recurso.
+        Nota: por ahora la duración es de 1 hora. Si el horario está ocupado te avisaremos.
+        Más adelante sumamos disponibilidad en vivo y reglas por recurso.
       </p>
 
       <button class="btn btn-primary" type="submit">Solicitar</button>
+      {# Ajusta el nombre de la URL si en urls.py se llama distinto #}
       <a class="btn" href="{% url 'core:reservation_mine' %}">Cancelar</a>
     </form>
   </div>
