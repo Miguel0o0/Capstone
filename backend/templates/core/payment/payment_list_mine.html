@@ -18,7 +18,18 @@
   <ul>
     {% for p in payments %}
       <li>
-        {{ p.fee.period }} - ${{ p.amount }} - {{ p.get_status_display }}
+        {# Detalle según origen #}
+        {% if p.origin == "reservation" and p.reservation %}
+          Reserva de {{ p.reservation.resource.nombre }}
+          ({{ p.reservation.start_at|date:"d/m/Y H:i" }})
+        {% elif p.origin == "fee" and p.fee %}
+          {{ p.fee.period }}
+        {% else %}
+          Pago
+        {% endif %}
+
+        - ${{ p.amount }} - {{ p.get_status_display }}
+
         {% if p.paid_at %}
           ({{ p.paid_at|date:"Y-m-d H:i" }})
         {% endif %}

@@ -135,47 +135,129 @@ class Fee(models.Model):
 
 
 class Payment(models.Model):
-    # --- constantes y choices ---
+    # Estados
     STATUS_PENDING = "pending"
     STATUS_PAID = "paid"
-    STATUS_CANCELLED = "cancelled"  # <- nuevo estado
+    STATUS_CANCELLED = "cancelled"
 
     STATUS_CHOICES = (
         (STATUS_PENDING, "Pendiente"),
         (STATUS_PAID, "Pagado"),
-        (STATUS_CANCELLED, "Cancelado"),  # <- visible en el select
+        (STATUS_CANCELLED, "Cancelado"),
     )
 
-    # --- campos ---
+    # Origen del pago
+    ORIGIN_FEE = "fee"                # cuota normal
+    ORIGIN_RESERVATION = "reservation"  # deuda por reserva de recurso
+
+    ORIGIN_CHOICES = (
+        (ORIGIN_FEE, "Cuota"),
+        (ORIGIN_RESERVATION, "Reserva"),
+    )
+
+    # --- Campos principales ---
+
     resident = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="payments",
-        verbose_name="Vecino",
+        verbose_name="Residente",
     )
-    fee = models.ForeignKey(Fee, on_delete=models.CASCADE, related_name="payments")
-    amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
+
+    fee = models.ForeignKey(
+        "Fee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Cuota",
+    )
+
+    reservation = models.ForeignKey(
+        "Reservation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Reserva",
+    )
+
+    amount = models.DecimalField(
+        "Monto",
+        max_digits=9,
+        decimal_places=2,
+    )
+
     status = models.CharField(
-        "Estado",  # <- cambia la etiqueta del formulario
-        max_length=10,
+        "Estado",
+        max_length=20,
         choices=STATUS_CHOICES,
         default=STATUS_PENDING,
     )
-    paid_at = models.DateTimeField("Fecha de pago", blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+
+    origin = models.CharField(
+        "Origen",
+        max_length=20,
+        choices=ORIGIN_CHOICES,
+        default=ORIGIN_RESERVATION,  # o FEE si prefieres
+    )
+
+    paid_at = models.DateTimeField(
+        "Fecha de pago",
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        "Creado en",
+        auto_now_add=True,
+    )
 
     class Meta:
-        ordering = ["-created_at"]
+        verbose_name = "Pago"
+        verbose_name_plural = "Pagos"
+        # Evita pagar 2 veces la misma cuota para el mismo residente
         constraints = [
             models.UniqueConstraint(
-                fields=["resident", "fee"],
-                condition=Q(status=STATUS_PAID),
-                name="uniq_paid_per_resident_fee",
+                fields=["resident", "fee", "origin"],
+                # OJO: aquí usamos el string literal, no ORIGIN_FEE
+                condition=Q(origin="fee"),
+                name="unique_fee_payment_per_resident",
             )
         ]
+        ordering = ["-created_at"]
+
+    # -------- Helpers --------
+
+    @classmethod
+    def create_for_reservation(cls, reservation, amount=None):
+        """
+        Crea un Payment PENDING asociado a una reserva.
+        Si no se pasa amount, usa el precio_por_hora del recurso.
+        """
+        resource = reservation.resource
+        if not resource or not resource.requiere_pago():
+            return None
+
+        if amount is None:
+            amount = resource.precio_por_hora
+
+        return cls.objects.create(
+            resident=reservation.requested_by,
+            reservation=reservation,
+            fee=None,
+            amount=amount,
+            status=cls.STATUS_PENDING,
+            origin=cls.ORIGIN_RESERVATION,
+        )
 
     def __str__(self):
-        return f"{self.resident} → {self.fee.period} ({self.get_status_display()})"
+        base_status = dict(self.STATUS_CHOICES).get(self.status, self.status)
+        if self.origin == self.ORIGIN_RESERVATION and self.reservation:
+            return f"{self.resident} → Reserva #{self.reservation.id} ({base_status})"
+        if self.origin == self.ORIGIN_FEE and self.fee:
+            return f"{self.resident} → {self.fee} ({base_status})"
+        return f"{self.resident} → {self.amount} ({base_status})"
 
 
 # -----------------------------
@@ -418,6 +500,16 @@ class Resource(models.Model):
     open_time = models.TimeField(null=True, blank=True)
     close_time = models.TimeField(null=True, blank=True)
 
+    # Precio por hora para canchas u otros recursos de pago
+    precio_por_hora = models.DecimalField(
+        "Precio por hora",
+        max_digits=9,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Dejar en blanco o 0 para recursos gratuitos (ej. salón de eventos).",
+    )
+
     class Meta:
         ordering = ["nombre"]
         verbose_name = "Recurso"
@@ -425,6 +517,14 @@ class Resource(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    def requiere_pago(self) -> bool:
+        """
+        Devuelve True si este recurso tiene un precio definido y mayor a 0.
+        Se usa para decidir si una reserva debe generar una deuda en Pagos.
+        """
+        return bool(self.precio_por_hora and self.precio_por_hora > 0)
+
 
 
 class Reservation(models.Model):

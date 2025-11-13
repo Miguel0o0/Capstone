@@ -1013,22 +1013,62 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
         return ctx
 
 
-class ReservationCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
+class ReservationCreateView(LoginRequiredMixin, CreateView):
     model = Reservation
     form_class = ReservationForm
     template_name = "core/reservations/form.html"
-    success_url = reverse_lazy("core:reservation_mine")
+
+    # -----------------------------
+    # 1) Leer el tipo desde la URL
+    # -----------------------------
+    def get_tipo_actual(self):
+        """
+        Devuelve el tipo actual según GET/POST:
+        'cancha_futbol', 'cancha_basquet', 'cancha_padel' o 'salon'.
+        """
+        tipo = self.request.GET.get("tipo") or self.request.POST.get("tipo")
+        validos = {"cancha_futbol", "cancha_basquet", "cancha_padel", "salon"}
+        if tipo in validos:
+            return tipo
+        return "cancha_futbol"  # por defecto
+
+    # -----------------------------
+    # 2) Pasar tipo al formulario
+    # -----------------------------
+    def get_initial(self):
+        initial = super().get_initial()
+        initial["tipo"] = self.get_tipo_actual()
+        return initial
 
     def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["request"] = self.request  # para leer ?tipo=... en el form
-        return kwargs
+        return super().get_form_kwargs()
 
+    # (si tu ReservationForm no espera 'user' o 'tipo', puedes
+    # quitar esas claves, pero en los chats anteriores lo veníamos usando así)
+
+    # -----------------------------
+    # 3) Crear reserva + Payment
+    # -----------------------------
     def form_valid(self, form):
-        form.instance.requested_by = self.request.user
-        form.instance.status = Reservation.Status.PENDING
-        messages.success(self.request, "Solicitud de reserva creada.")
+        reservation = form.save(commit=False)
+        reservation.requested_by = self.request.user
+
+        # Si no viene end_at, sumamos 1 hora
+        if reservation.start_at and not reservation.end_at:
+            reservation.end_at = reservation.start_at + timezone.timedelta(hours=1)
+
+        reservation.save()
+
+        # Crear deuda automática por reserva (si el recurso es de pago)
+        resource = reservation.resource
+        if resource and hasattr(resource, "requiere_pago") and resource.requiere_pago():
+            Payment.create_for_reservation(reservation)
+
+        messages.success(self.request, "Reserva creada correctamente.")
         return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("core:reservation_mine")
 
 
 class ReservationCancelView(LoginRequiredMixin, View):
@@ -1050,7 +1090,7 @@ class ReservationCancelView(LoginRequiredMixin, View):
             reserva.save()
 
         messages.success(request, "Reserva cancelada.")
-        return redirect("core:reservation_list_mine")
+        return redirect("core:reservation_mine")
 
 
 class ReservationListAdminView(

@@ -204,6 +204,7 @@ urlpatterns = [
         views.ReservationManageView.as_view(),
         name="reservation_manage",
     ),
+    # Inscripcion
     path("inscripcion/", InscriptionCreateView.as_view(), name="insc_create"),
     path(
         "inscripcion/admin/",

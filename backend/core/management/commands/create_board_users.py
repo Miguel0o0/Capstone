@@ -1,3 +1,5 @@
+# backend/core/management/commands/create_board_users.py
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
@@ -9,13 +11,18 @@ USERS = [
     ("presidente1", "presidente1@example.com", "Presidente", "Uno", "Presidente"),
     ("tesorero1", "tesorero1@example.com", "Tesorero", "Uno", "Tesorero"),
     ("delegado1", "delegado1@example.com", "Delegado", "Uno", "Delegado"),
+    ("secretario1", "secretario1@example.com", "Secretario", "Uno", "Secretario"),
+    ("vecino1", "vecino1@example.com", "Vecino", "Uno", "Vecino"),
 ]
 
 DEFAULT_PASSWORD = "Demo1234!"  # cambia luego en admin si quieres
 
 
 class Command(BaseCommand):
-    help = "Crea usuarios demo para Presidente/Tesorero/Delegado y los asigna a sus grupos."
+    help = (
+        "Crea usuarios demo para Presidente/Tesorero/Delegado/Secretario/Vecino "
+        "y los asigna a sus grupos."
+    )
 
     def handle(self, *args, **options):
         created = 0

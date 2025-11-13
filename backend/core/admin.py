@@ -76,15 +76,32 @@ class FeeAdmin(admin.ModelAdmin):
 # --------
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ("resident", "fee", "amount", "status", "paid_at", "created_at")
-    list_filter = ("status", ("fee", admin.RelatedOnlyFieldListFilter))
+    list_display = (
+        "resident",
+        "origin",
+        "fee",
+        "reservation",
+        "amount",
+        "status",
+        "paid_at",
+        "created_at",
+    )
+    list_filter = (
+        "status",
+        "origin",
+        ("fee", admin.RelatedOnlyFieldListFilter),
+        ("reservation", admin.RelatedOnlyFieldListFilter),
+    )
     search_fields = (
         "resident__username",
         "resident__first_name",
         "resident__last_name",
         "fee__period",
+        "reservation__resource__nombre",
+        "reservation__title",
     )
-    autocomplete_fields = ("resident", "fee")
+    autocomplete_fields = ("resident", "fee", "reservation")
+    readonly_fields = ("created_at",)
 
 
 # ---------------
@@ -168,7 +185,7 @@ class ResourceCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Resource)
 class ResourceAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "categoria", "activo")
+    list_display = ("nombre", "categoria", "precio_por_hora", "activo")
     list_filter = ("activo", "categoria")
     search_fields = ("nombre",)
     autocomplete_fields = ("categoria",)
