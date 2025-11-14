@@ -1,5 +1,8 @@
 {% extends "base.html" %}
+{% load auth_extras %}
+
 {% block title %}Mis incidencias{% endblock %}
+
 {% block content %}
 <div class="head-between">
   <h1>Mis incidencias</h1>
@@ -9,11 +12,51 @@
 <ul class="list">
   {% for i in incidencias %}
     <li class="card">
-      <div class="card-title">{{ i.titulo }} <small>({{ i.get_status_display }})</small></div>
+      <h2 class="card-title">{{ i.titulo }}</h2>
+
       <div class="card-body">
+        {# Mostrar quién reportó SOLO para perfiles que no sean Vecino #}
+        {% if not user|has_group:"Vecino" %}
+          <p><small>Reportada por: {{ i.reportado_por }}</small></p>
+        {% endif %}
+
         <p>{{ i.descripcion|linebreaksbr }}</p>
-        {% if i.foto %}<p><img src="{{ i.foto.url }}" alt="foto" style="max-width:280px"></p>{% endif %}
+
+        {% if i.foto %}
+          <p>
+            <img src="{{ i.foto.url }}" alt="Foto incidencia" style="max-width:280px;">
+          </p>
+        {% endif %}
+
         <small>Creada: {{ i.created_at|date:"d/m/Y H:i" }}</small>
+
+        <div class="mt-2">
+          {# --- EDITAR --- #}
+          {% if perms.core.change_incident %}
+            {% if user|has_group:"Delegado" or user|has_group:"Secretario" or user|has_group:"Presidente" or user.is_superuser %}
+              {# Delegado / Secretario / Presidente / superuser -> cualquier incidencia #}
+              <a href="{% url 'core:incident_update' i.pk %}">Editar</a>
+            {% else %}
+              {# Tesorero o Vecino (u otros) -> solo sus propias incidencias #}
+              {% if i.reportado_por == user %}
+                <a href="{% url 'core:incident_update' i.pk %}">Editar</a>
+              {% endif %}
+            {% endif %}
+          {% endif %}
+
+          {# --- ELIMINAR --- #}
+          {% if perms.core.delete_incident %}
+            {% if user|has_group:"Delegado" or user|has_group:"Secretario" or user|has_group:"Presidente" or user.is_superuser %}
+              {% if perms.core.change_incident %} | {% endif %}
+              <a href="{% url 'core:incident_delete' i.pk %}">Eliminar</a>
+            {% else %}
+              {% if i.reportado_por == user %}
+                {% if perms.core.change_incident %} | {% endif %}
+                <a href="{% url 'core:incident_delete' i.pk %}">Eliminar</a>
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        </div>
       </div>
     </li>
   {% empty %}

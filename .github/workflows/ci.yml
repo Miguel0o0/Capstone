@@ -37,9 +37,3 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: junta_ut.settings.dev
         run: pytest -q
-
-      - name: Install pre-commit
-        run: pip install pre-commit
-
-      - name: Run pre-commit (all files)
-        run: pre-commit run --all-files

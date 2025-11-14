@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Pago{% endblock %}
+
+{% block content %}
+<h1>Pago</h1>
+
+<form method="post" class="card">
+  {% csrf_token %}
+  {{ form.non_field_errors }}
+
+  {# --- TESORERO / ADMIN / SECRETARIO / SUPERUSER --- #}
+  {% if perms.core.change_payment or user.is_superuser %}
+    {{ form.as_p }}
+
+    <button class="btn btn-primary" type="submit">Guardar</button>
+
+    {# Si venimos desde gestión de pagos (admin/tesorero), volvemos allí #}
+    {% if is_admin_payment %}
+      <a class="btn" href="{% url 'core:payment_list_admin' %}">Cancelar</a>
+    {# Por si en algún momento se reutiliza este form para un flujo del vecino #}
+    {% else %}
+      <a class="btn" href="{% url 'core:my_payments' %}">Cancelar</a>
+    {% endif %}
+
+  {# --- VECINO (u otro sin permiso de change_payment) --- #}
+  {% else %}
+    {# Solo elegir el pago/cuota pendiente que quiere pagar #}
+    <div class="form-group">
+      <label for="{{ form.fee.id_for_label }}">Seleccionar pago pendiente</label>
+      {{ form.fee }}
+      {{ form.fee.errors }}
+    </div>
+
+    {# El resto de campos (resident, status, paid_at...) van ocultos en el form #}
+
+    <button class="btn btn-secondary" type="submit">Continuar</button>
+    <a class="btn" href="{% url 'core:my_payments' %}">Cancelar</a>
+  {% endif %}
+</form>
+{% endblock %}

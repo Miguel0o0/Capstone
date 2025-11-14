@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Borrar pago{% endblock %}
+
+{% block content %}
+  <h1>Borrar pago</h1>
+  <p>
+    ¿Seguro que deseas borrar este pago?<br>
+    <strong>
+      {{ object.resident.username }}
+      — ${{ object.amount }}
+      — {{ object.get_status_display }}
+    </strong>
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button class="btn btn-danger" type="submit">Sí, borrar</button>
+    <a class="btn" href="{% url 'core:payment_list_admin' %}">Cancelar</a>
+  </form>
+{% endblock %}

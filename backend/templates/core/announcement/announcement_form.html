@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{% if object %}Editar{% else %}Nuevo{% endif %} aviso</h1>
+
+<form method="post">
+  {% csrf_token %}
+
+  <p>
+    {{ form.titulo.label_tag }}<br>
+    {{ form.titulo }}
+  </p>
+  <p>
+    {{ form.cuerpo.label_tag }}<br>
+    {{ form.cuerpo }}
+  </p>
+  <p>
+    {{ form.visible_hasta.label_tag }}<br>
+    {{ form.visible_hasta }}
+  </p>
+
+  <button type="submit" class="btn btn-primary">
+    {% if object %}Guardar cambios{% else %}Crear nuevo aviso{% endif %}
+  </button>
+  <a class="btn" href="{% url 'core:announcement_list' %}">Cancelar</a>
+</form>
+{% endblock %}

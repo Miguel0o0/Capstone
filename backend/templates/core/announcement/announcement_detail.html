@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ aviso.titulo }}</h1>
+<p>{{ aviso.cuerpo|linebreaks }}</p>
+
+<small>
+  Publicado: {{ aviso.creado_en|date:"Y-m-d H:i" }}<br>
+  {% if aviso.visible_hasta %}Visible hasta: {{ aviso.visible_hasta }}<br>{% endif %}
+  {% if aviso.creado_por %}Por: {{ aviso.creado_por.username }}{% endif %}
+</small>
+
+{% if perms.core.change_announcement or perms.core.delete_announcement %}
+  <p style="margin-top:.5rem">
+    {% if perms.core.change_announcement %}
+      <a href="{% url 'core:announcement_edit' aviso.pk %}">Editar</a>
+    {% endif %}
+    {% if perms.core.delete_announcement %}
+      {% if perms.core.change_announcement %} | {% endif %}
+      <a href="{% url 'core:announcement_delete' aviso.pk %}">Eliminar</a>
+    {% endif %}
+  </p>
+{% endif %}
+
+<p><a href="{% url 'core:announcement_list' %}">&larr; Volver</a></p>
+{% endblock %}

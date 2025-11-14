@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load auth_extras %}
+
+{% block content %}
+  <h1>
+    {% if user|has_group:"Delegado" %}
+      Pagos
+    {% else %}
+      Mis pagos
+    {% endif %}
+  </h1>
+
+  {# El Delegado no debe poder crear pagos #}
+  {% if not user|has_group:"Delegado" %}
+    <p><a href="{% url 'core:payment_create' %}">Realiza pago</a></p>
+  {% endif %}
+
+  <ul>
+    {% for p in payments %}
+      <li>
+        {# Detalle según origen #}
+        {% if p.origin == "reservation" and p.reservation %}
+          Reserva de {{ p.reservation.resource.nombre }}
+          ({{ p.reservation.start_at|date:"d/m/Y H:i" }})
+        {% elif p.origin == "fee" and p.fee %}
+          {{ p.fee.period }}
+        {% else %}
+          Pago
+        {% endif %}
+
+        - ${{ p.amount }} - {{ p.get_status_display }}
+
+        {% if p.paid_at %}
+          ({{ p.paid_at|date:"Y-m-d H:i" }})
+        {% endif %}
+      </li>
+    {% empty %}
+      <li>No tienes pagos aún.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

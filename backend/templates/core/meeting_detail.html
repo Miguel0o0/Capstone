@@ -1,30 +1,35 @@
 {% extends "base.html" %}
-{% load auth_extras %}
-
-{% block title %}Reunión{% endblock %}
-
 {% block content %}
-<h1>{{ reunion.tema }}</h1>
-<p><b>Fecha:</b> {{ reunion.fecha|date:"Y-m-d H:i" }}</p>
-<p><b>Lugar:</b> {{ reunion.lugar }}</p>
+<h1>Detalle de reunión</h1>
 
-{# Acciones para Admin/Secretario/Superuser #}
-{% if user.is_authenticated and (user.is_superuser or user|has_group:"Admin" or user|has_group:"Secretario") %}
-  <p>
-    <a href="{% url 'core:meeting_update' reunion.pk %}">Editar</a> |
-    <a href="{% url 'core:meeting_delete' reunion.pk %}">Eliminar</a>
-  </p>
-{% endif %}
+{% with m=meeting|default:object %}
+  <div class="card">
+    <p><strong>Fecha:</strong> {{ m.fecha|date:"d/m/Y H:i" }}</p>
+    <p><strong>Lugar:</strong> {{ m.lugar }}</p>
+    <p><strong>Tema:</strong> {{ m.tema }}</p>
+  </div>
 
-{# Acta vinculada (Minutes) #}
-{% if reunion.minutes %}
-  <p><a href="{% url 'core:minutes_detail' reunion.minutes.pk %}">Ver acta</a></p>
-{% else %}
-  <p><i>Sin acta disponible.</i></p>
-  {% if user.is_authenticated and (user.is_superuser or user|has_group:"Admin" or user|has_group:"Secretario") %}
-    <p><a href="{% url 'core:minutes_create' %}?meeting={{ reunion.pk }}">Crear acta</a></p>
+  <h2 style="margin-top:1rem">Acta</h2>
+  {% if m.minutes %}
+    {% if m.minutes.archivo %}
+      <p>
+        <a class="btn" href="{{ m.minutes.archivo.url }}">Descargar acta</a>
+      </p>
+    {% endif %}
+    {% if m.minutes.texto %}
+      <div class="prose" style="margin-top:.5rem">
+        {{ m.minutes.texto|linebreaks }}
+      </div>
+    {% endif %}
+    {% if not m.minutes.archivo and not m.minutes.texto %}
+      <p><em>(Sin contenido de acta cargado aún.)</em></p>
+    {% endif %}
+  {% else %}
+    <p><em>Acta pendiente.</em></p>
   {% endif %}
-{% endif %}
 
-<p><a href="{% url 'core:meeting_list' %}">&larr; Volver</a></p>
+  <p style="margin-top:1rem">
+    <a href="{% url 'core:meeting_list' %}">← Volver a reuniones</a>
+  </p>
+{% endwith %}
 {% endblock %}

@@ -5,12 +5,16 @@ import uuid
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
 User = get_user_model()
+
+ALLOWED_EXTS = {"pdf", "jpg", "jpeg", "png"}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 class Resident(models.Model):
@@ -117,57 +121,155 @@ STATUS_CHOICES = [
 
 class Fee(models.Model):
     period = models.CharField(
-        "Periodo (YYYY-MM)",
-        max_length=7,
-        unique=True,
-        help_text="Ej: 2025-10",
+        "Nombre de deuda",
+        max_length=100,
+        help_text="Ej: Cancha fútbol 1, Cancha básquet 2, Cancha pádel 1, etc.",
     )
-    amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
+
+    # <- ahora el monto es OPCIONAL y pensado como sugerido
+    amount = models.DecimalField(
+        "Monto sugerido",
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
 
     class Meta:
-        ordering = ["-period"]
+        verbose_name = "Deuda"
+        verbose_name_plural = "Deudas"
 
     def __str__(self):
-        return f"Cuota {self.period} (${self.amount})"
+        # Si no quieres que salga el monto en el combo, deja sólo el nombre:
+        return self.period
+        # (si algún día quieres mostrar también el monto sugerido:
+        # return f"{self.period} (${self.amount})" if self.amount is not None else self.period
 
 
 class Payment(models.Model):
-    # --- constantes y choices ---
+    # Estados
     STATUS_PENDING = "pending"
     STATUS_PAID = "paid"
+    STATUS_CANCELLED = "cancelled"
 
     STATUS_CHOICES = (
         (STATUS_PENDING, "Pendiente"),
         (STATUS_PAID, "Pagado"),
+        (STATUS_CANCELLED, "Cancelado"),
     )
 
-    # --- campos ---
+    # Origen del pago
+    ORIGIN_FEE = "fee"  # cuota normal
+    ORIGIN_RESERVATION = "reservation"  # deuda por reserva de recurso
+
+    ORIGIN_CHOICES = (
+        (ORIGIN_FEE, "Cuota"),
+        (ORIGIN_RESERVATION, "Reserva"),
+    )
+
+    # --- Campos principales ---
+
     resident = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="payments",
-        verbose_name="Vecino",
+        verbose_name="Residente",
     )
-    fee = models.ForeignKey(Fee, on_delete=models.CASCADE, related_name="payments")
-    amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
+
+    fee = models.ForeignKey(
+        "Fee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Cuota",
+    )
+
+    reservation = models.ForeignKey(
+        "Reservation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+        verbose_name="Reserva",
+    )
+
+    amount = models.DecimalField(
+        "Monto",
+        max_digits=9,
+        decimal_places=2,
+    )
+
     status = models.CharField(
-        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING
+        "Estado",
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
     )
-    paid_at = models.DateTimeField("Fecha de pago", blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+
+    origin = models.CharField(
+        "Origen",
+        max_length=20,
+        choices=ORIGIN_CHOICES,
+        default=ORIGIN_RESERVATION,  # o FEE si prefieres
+    )
+
+    paid_at = models.DateTimeField(
+        "Fecha de pago",
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        "Creado en",
+        auto_now_add=True,
+    )
 
     class Meta:
-        ordering = ["-created_at"]
+        verbose_name = "Pago"
+        verbose_name_plural = "Pagos"
+        # Evita pagar 2 veces la misma cuota para el mismo residente
         constraints = [
             models.UniqueConstraint(
-                fields=["resident", "fee"],
-                condition=Q(status=STATUS_PAID),
-                name="uniq_paid_per_resident_fee",
+                fields=["resident", "fee", "origin"],
+                # OJO: aquí usamos el string literal, no ORIGIN_FEE
+                condition=Q(origin="fee"),
+                name="unique_fee_payment_per_resident",
             )
         ]
+        ordering = ["-created_at"]
+
+    # -------- Helpers --------
+
+    @classmethod
+    def create_for_reservation(cls, reservation, amount=None):
+        """
+        Crea un Payment PENDING asociado a una reserva.
+        Si no se pasa amount, usa el precio_por_hora del recurso.
+        """
+        resource = reservation.resource
+        if not resource or not resource.requiere_pago():
+            return None
+
+        if amount is None:
+            amount = resource.precio_por_hora
+
+        return cls.objects.create(
+            resident=reservation.requested_by,
+            reservation=reservation,
+            fee=None,
+            amount=amount,
+            status=cls.STATUS_PENDING,
+            origin=cls.ORIGIN_RESERVATION,
+        )
 
     def __str__(self):
-        return f"{self.resident} → {self.fee.period} ({self.get_status_display()})"
+        base_status = dict(self.STATUS_CHOICES).get(self.status, self.status)
+        if self.origin == self.ORIGIN_RESERVATION and self.reservation:
+            return f"{self.resident} → Reserva #{self.reservation.id} ({base_status})"
+        if self.origin == self.ORIGIN_FEE and self.fee:
+            return f"{self.resident} → {self.fee} ({base_status})"
+        return f"{self.resident} → {self.amount} ({base_status})"
 
 
 # -----------------------------
@@ -281,10 +383,29 @@ def validate_image_size(f):
 
 
 def incident_upload_to(instance, filename):
-    ext = filename.split(".")[-1].lower()
-    return os.path.join(
-        "incidencias", f"{instance.created_at:%Y/%m}", f"{uuid.uuid4().hex}.{ext}"
-    )
+    """
+    Ruta para las fotos de incidencias.
+
+    No depende de created_at (que todavía es None cuando se crea).
+    Usa:
+      - id del usuario que reporta (o 'anon' si no hay)
+      - fecha/hora actual
+      - un uuid para evitar colisiones
+    """
+    # extensión del archivo
+    ext = (filename.rsplit(".", 1)[-1] or "").lower()
+
+    # id del usuario que reporta, o 'anon' como fallback
+    user_id = getattr(getattr(instance, "reportado_por", None), "id", "anon")
+
+    # fecha/hora actual
+    dt = timezone.now()
+
+    # nombre de archivo único
+    new_name = f"{dt:%Y%m%d_%H%M%S}_{uuid.uuid4().hex}.{ext}"
+
+    # quedaría algo como: incidencias/3/20251112_221800_abcd1234.jpg
+    return os.path.join("incidencias", str(user_id), new_name)
 
 
 class IncidentCategory(models.Model):
@@ -358,14 +479,8 @@ class Incident(models.Model):
         verbose_name_plural = "Incidencias"
 
     def __str__(self):
+        # Ya no usamos esto en la lista, pero lo dejo por si lo ves en admin
         return f"[{self.get_status_display()}] {self.titulo}"
-
-
-def incident_upload_to(instance, filename):
-    # usa fallback si created_at aún no existe
-    ext = filename.split(".")[-1].lower()
-    dt = getattr(instance, "created_at", None) or timezone.now()
-    return os.path.join("incidencias", f"{dt:%Y/%m}", f"{uuid.uuid4().hex}.{ext}")
 
 
 class ResourceCategory(models.Model):
@@ -397,6 +512,16 @@ class Resource(models.Model):
     open_time = models.TimeField(null=True, blank=True)
     close_time = models.TimeField(null=True, blank=True)
 
+    # Precio por hora para canchas u otros recursos de pago
+    precio_por_hora = models.DecimalField(
+        "Precio por hora",
+        max_digits=9,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Dejar en blanco o 0 para recursos gratuitos (ej. salón de eventos).",
+    )
+
     class Meta:
         ordering = ["nombre"]
         verbose_name = "Recurso"
@@ -404,6 +529,13 @@ class Resource(models.Model):
 
     def __str__(self):
         return self.nombre
+
+    def requiere_pago(self) -> bool:
+        """
+        Devuelve True si este recurso tiene un precio definido y mayor a 0.
+        Se usa para decidir si una reserva debe generar una deuda en Pagos.
+        """
+        return bool(self.precio_por_hora and self.precio_por_hora > 0)
 
 
 class Reservation(models.Model):
@@ -459,18 +591,164 @@ class Reservation(models.Model):
         return f"{self.resource} · {self.title} · {self.start_at:%Y-%m-%d %H:%M}"
 
     def clean(self):
+        # Si falta alguno de estos datos, no validamos todavía
+        if not self.start_at or not self.end_at:
+            return
+
         if self.start_at >= self.end_at:
             raise ValidationError(
                 "La fecha/hora de inicio debe ser menor que la de término."
             )
+
+        # OJO: usamos resource_id para no disparar el descriptor .resource
+        if not self.resource_id:
+            return
+
         qs = Reservation.objects.filter(
-            resource=self.resource,
+            resource_id=self.resource_id,
             status__in=[Reservation.Status.PENDING, Reservation.Status.APPROVED],
         ).exclude(pk=self.pk)
+
         qs = qs.filter(start_at__lt=self.end_at, end_at__gt=self.start_at)
+
         if qs.exists():
             raise ValidationError("El recurso ya está reservado en ese intervalo.")
 
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+def evidence_upload_to(instance, filename):
+    return f"evidencias_inscripcion/{timezone.now():%Y/%m/%d}/{filename}"
+
+
+def validate_evidence(file):
+    ext = (file.name.rsplit(".", 1)[-1] or "").lower()
+    if ext not in ALLOWED_EXTS:
+        raise ValidationError("Formato no permitido (usa PDF, JPG, JPEG o PNG).")
+    if file.size and file.size > MAX_UPLOAD_BYTES:
+        raise ValidationError("El archivo supera 5 MB.")
+
+
+class InscriptionEvidence(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pendiente"
+        APPROVED = "APPROVED", "Aprobada"
+        REJECTED = "REJECTED", "Rechazada"
+
+    # Boleta subida
+    file = models.FileField(
+        upload_to=evidence_upload_to,
+        validators=[validate_evidence],
+    )
+
+    # 👇 Nuevos campos para ANÓNIMOS
+    applicant_name = models.CharField(
+        "Nombre del solicitante",
+        max_length=150,
+        blank=True,
+        null=True,
+    )
+    applicant_address = models.CharField(
+        "Dirección",
+        max_length=255,
+        blank=True,
+        null=True,
+    )
+
+    # Correo de contacto
+    email = models.EmailField(
+        "Correo de contacto",
+        max_length=254,
+        blank=True,
+        null=True,
+        help_text=(
+            "Usaremos este correo para avisarte si tu inscripción "
+            "fue aprobada o rechazada."
+        ),
+    )
+
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+
+    # Si el que envía está logueado, lo guardamos aquí
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="insc_submissions",
+    )
+
+    # Si se vincula a un Resident concreto
+    resident = models.ForeignKey(
+        Resident,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+    )
+
+    validated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="insc_validations",
+    )
+    validated_at = models.DateTimeField(null=True, blank=True)
+    note = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # ---------- Lógica de aprobación / rechazo ----------
+
+    def approve(self, user, note: str = ""):
+        self.status = self.Status.APPROVED
+        self.validated_by = user
+        self.validated_at = timezone.now()
+        self.note = note
+
+        # Avisar por correo si el solicitante lo dejó
+        if self.email:
+            mensaje = (
+                "Hola,\n\n"
+                "Tu solicitud de inscripción en la Junta de Vecinos ha sido APROBADA.\n"
+                f"Nota: {note or 'Sin comentarios adicionales.'}\n\n"
+                "¡Te damos la bienvenida!\n"
+            )
+            send_mail(
+                subject="Inscripción aprobada – Junta de Vecinos",
+                message=mensaje,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                recipient_list=[self.email],
+                fail_silently=True,
+            )
+
+    def reject(self, user, note: str = ""):
+        self.status = self.Status.REJECTED
+        self.validated_by = user
+        self.validated_at = timezone.now()
+        self.note = note
+
+        if self.email:
+            mensaje = (
+                "Hola,\n\n"
+                "Tu solicitud de inscripción en la Junta de Vecinos ha sido RECHAZADA.\n"
+                f"Motivo: {note or 'Sin comentarios adicionales.'}\n\n"
+                "Si crees que se trata de un error, puedes volver a enviar tus datos.\n"
+            )
+            send_mail(
+                subject="Inscripción rechazada – Junta de Vecinos",
+                message=mensaje,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                recipient_list=[self.email],
+                fail_silently=True,
+            )
+
+    def __str__(self):
+        return f"Inscripción #{self.pk} - {self.get_status_display()}"

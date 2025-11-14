@@ -8,6 +8,7 @@ from .models import (
     Household,
     Incident,
     IncidentCategory,
+    InscriptionEvidence,
     Meeting,
     Minutes,
     Payment,
@@ -65,9 +66,13 @@ class MinutesAdmin(admin.ModelAdmin):
 # -------
 @admin.register(Fee)
 class FeeAdmin(admin.ModelAdmin):
-    list_display = ("period", "amount")
+    # Lo que se ve en la tabla
+    list_display = ("period",)
+
+    # Lo que se edita en el formulario
+    fields = ("period",)
+
     search_fields = ("period",)
-    ordering = ("-period",)
 
 
 # --------
@@ -75,15 +80,32 @@ class FeeAdmin(admin.ModelAdmin):
 # --------
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ("resident", "fee", "amount", "status", "paid_at", "created_at")
-    list_filter = ("status", ("fee", admin.RelatedOnlyFieldListFilter))
+    list_display = (
+        "resident",
+        "origin",
+        "fee",
+        "reservation",
+        "amount",
+        "status",
+        "paid_at",
+        "created_at",
+    )
+    list_filter = (
+        "status",
+        "origin",
+        ("fee", admin.RelatedOnlyFieldListFilter),
+        ("reservation", admin.RelatedOnlyFieldListFilter),
+    )
     search_fields = (
         "resident__username",
         "resident__first_name",
         "resident__last_name",
         "fee__period",
+        "reservation__resource__nombre",
+        "reservation__title",
     )
-    autocomplete_fields = ("resident", "fee")
+    autocomplete_fields = ("resident", "fee", "reservation")
+    readonly_fields = ("created_at",)
 
 
 # ---------------
@@ -167,7 +189,7 @@ class ResourceCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Resource)
 class ResourceAdmin(admin.ModelAdmin):
-    list_display = ("nombre", "categoria", "activo")
+    list_display = ("nombre", "categoria", "precio_por_hora", "activo")
     list_filter = ("activo", "categoria")
     search_fields = ("nombre",)
     autocomplete_fields = ("categoria",)
@@ -179,3 +201,19 @@ class ReservationAdmin(admin.ModelAdmin):
     list_filter = ("status", "resource", "start_at")
     search_fields = ("title", "requested_by__username")
     autocomplete_fields = ("resource", "requested_by", "approved_by")
+
+
+@admin.register(InscriptionEvidence)
+class InscriptionEvidenceAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "status",
+        "submitted_by",
+        "resident",
+        "created_at",
+        "validated_by",
+        "validated_at",
+    )
+    list_filter = ("status", "created_at")
+    search_fields = ("id", "submitted_by__username", "resident__nombre")
+    readonly_fields = ("created_at", "updated_at", "validated_by", "validated_at")

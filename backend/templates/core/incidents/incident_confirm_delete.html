@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Eliminar incidencia{% endblock %}
+
+{% block content %}
+  <h1>Eliminar incidencia</h1>
+
+  <p>¿Estás seguro de que quieres eliminar la incidencia
+    "<strong>{{ object.titulo }}</strong>"?
+  </p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+    <a href="{% url 'core:incident_mine' %}" class="btn btn-secondary">Cancelar</a>
+  </form>
+{% endblock %}

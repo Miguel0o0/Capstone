@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Pago{% endblock %}
+
+{% block content %}
+  <h1>Pago</h1>
+
+  <form method="post">
+    {% csrf_token %}
+
+    <p>
+      {{ form.payment.label_tag }}
+      {{ form.payment }}
+      {% if form.payment.errors %}
+        <br>
+        <span class="error">{{ form.payment.errors.0 }}</span>
+      {% endif %}
+    </p>
+
+    <p>
+      Nota: por ahora solo se selecciona la deuda. El siguiente paso (medio de pago)
+      se implementará más adelante.
+    </p>
+
+    <button type="submit" class="btn btn-primary">Continuar</button>
+    <a href="{% url 'core:my_payments' %}">Cancelar</a>
+  </form>
+{% endblock %}

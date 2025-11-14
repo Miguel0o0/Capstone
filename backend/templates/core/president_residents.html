@@ -1,91 +1,97 @@
 {% extends "base.html" %}
-{% load static %}
+
+{% block title %}Presidencia{% endblock %}
 
 {% block content %}
-<h1>Gestión de vecinos</h1>
+<div class="container">
+  <h1>Gestión de vecinos</h1>
+  <p>Desde aquí el Presidente puede ver y gestionar a todas las personas registradas en la Junta de Vecinos.</p>
 
-{# Mensajes flash #}
-{% if messages %}
-  <div class="messages" style="margin:.5rem 0;">
-    {% for m in messages %}
-      <div class="msg {{ m.tags }}" style="padding:.4rem .6rem; border:1px solid #cfe3ff; background:#f3f8ff; margin-bottom:.3rem;">
-        {{ m }}
-      </div>
-    {% endfor %}
-  </div>
-{% endif %}
+  <form method="get" class="mb-3 d-flex gap-2 align-items-end">
+    <input
+      type="text"
+      name="q"
+      placeholder="Buscar por nombre o email"
+      value="{{ q }}"
+      style="min-width: 260px;"
+    >
+    <select name="activo">
+      <option value="">Activo (todos)</option>
+      <option value="si" {% if activo == "si" %}selected{% endif %}>Solo activos</option>
+      <option value="no" {% if activo == "no" %}selected{% endif %}>Solo desactivados</option>
+    </select>
+    <button type="submit">Filtrar</button>
+    {% if q or activo %}
+      <a href="{% url 'core:president_residents' %}" style="margin-left:.5rem;">Limpiar</a>
+    {% endif %}
+  </form>
 
-{# Filtros #}
-<form method="get" class="filters" style="display:flex; gap:.5rem; align-items:center; margin:.5rem 0 1rem;">
-  <input
-    type="text"
-    name="q"
-    value="{{ q }}"
-    placeholder="Buscar por nombre o email"
-    style="min-width:260px;"
-  />
-
-  <select name="activo">
-    <option value="" {% if not activo %}selected{% endif %}>Activo (todos)</option>
-    <option value="si" {% if activo == 'si' %}selected{% endif %}>Solo activos</option>
-    <option value="no" {% if activo == 'no' %}selected{% endif %}>Solo inactivos</option>
-  </select>
-
-  <button type="submit">Filtrar</button>
-  <a href="{% url 'core:president_residents' %}">Limpiar</a>
-</form>
-
-{# Tabla #}
-<table class="table">
-  <thead>
-    <tr>
-      <th>Nombre</th>
-      <th>Email</th>
-      <th>Activo</th>
-      <th style="width:140px;">Acción</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for r in vecinos %}
+  <table class="table table-striped align-middle">
+    <thead>
       <tr>
-        <td>{{ r.nombre }}</td>
-        <td>{{ r.email|default:"-" }}</td>
-        <td>{{ r.activo|yesno:"Sí,No" }}</td>
-        <td>
-          <form
-            action="{% url 'core:resident_toggle' r.pk %}"
-            method="post"
-            style="display:inline-block"
-          >
-            {% csrf_token %}
-            {% if r.activo %}
-              <button type="submit">Desactivar</button>
+        <th>Nombre</th>
+        <th>Rol en la junta</th>
+        <th>Email</th>
+        <th>Dirección</th>
+        <th>Activo</th>
+        <th>Acción</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vecinos %}
+        <tr>
+          <td>{{ v.nombre }}</td>
+
+          <td>
+            {# Mostramos todos los grupos del usuario (Presidente, Tesorero, etc.) #}
+            {% if v.user %}
+              {% for g in v.user.groups.all %}
+                {{ g.name }}{% if not forloop.last %}, {% endif %}
+              {% empty %}
+                Vecino
+              {% endfor %}
             {% else %}
-              <button type="submit">Activar</button>
+              Vecino
             {% endif %}
-          </form>
-        </td>
-      </tr>
-    {% empty %}
-      <tr>
-        <td colspan="4">No hay vecinos registrados.</td>
-      </tr>
-    {% endfor %}
-  </tbody>
-</table>
+          </td>
 
-{# Paginación preservando filtros #}
-{% if is_paginated %}
-  <nav class="pagination" style="margin-top:1rem; display:flex; gap:.5rem; align-items:center;">
-    {% if page_obj.has_previous %}
-      <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&activo={{ activo }}">« Anterior</a>
-    {% endif %}
+          <td>
+            {% if v.email %}
+              {{ v.email }}
+            {% elif v.user and v.user.email %}
+              {{ v.user.email }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
 
-    <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+          <td>
+            {% if v.direccion %}
+              {{ v.direccion }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
 
-    {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&activo={{ activo }}">Siguiente »</a>
-    {% endif %}
-  </nav>
-{% endif %}
+          <td>
+            {% if v.activo %}Sí{% else %}No{% endif %}
+          </td>
+
+          <td>
+            <form method="post" action="{% url 'core:resident_toggle' v.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-primary">
+                {% if v.activo %}Dar de baja{% else %}Reactivar{% endif %}
+              </button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="6">No hay vecinos registrados.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}
