@@ -1,7 +1,7 @@
 # backend/core/management/commands/create_board_users.py
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 
 User = get_user_model()
@@ -21,7 +21,8 @@ DEFAULT_PASSWORD = "Demo1234!"  # cambia luego en admin si quieres
 class Command(BaseCommand):
     help = (
         "Crea usuarios demo para Presidente/Tesorero/Delegado/Secretario/Vecino "
-        "y los asigna a sus grupos."
+        "y los asigna a sus grupos. Además asigna todos los permisos de 'core' "
+        "al grupo Presidente."
     )
 
     def handle(self, *args, **options):
@@ -66,3 +67,24 @@ class Command(BaseCommand):
         self.stdout.write(
             "Recuerda: presidente/secretario ven 'Inscripciones'; tesorero/delegado no."
         )
+
+        # ------------------------------------------------------------------
+        # Asignar TODOS los permisos del app 'core' al grupo Presidente
+        # ------------------------------------------------------------------
+        try:
+            presidente_group = Group.objects.get(name="Presidente")
+        except Group.DoesNotExist:
+            self.stdout.write(
+                self.style.WARNING(
+                    "[WARN] No existe el grupo 'Presidente'. "
+                    "Ejecuta setup_roles para crearlo y luego vuelve a correr este comando."
+                )
+            )
+        else:
+            core_perms = Permission.objects.filter(content_type__app_label="core")
+            presidente_group.permissions.set(core_perms)
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "✔ Permisos del app 'core' asignados al grupo Presidente."
+                )
+            )

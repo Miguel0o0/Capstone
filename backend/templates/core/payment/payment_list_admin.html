@@ -1,32 +1,23 @@
 {% extends "base.html" %}
-{% load auth_extras %}  {# para usar has_group #}
+{% load auth_extras %}
 
-{% block title %}Gestión de pagos{% endblock %}
+{% block title %}Pagos{% endblock %}
 
 {% block content %}
-  <h1>
-    {% if user|has_group:"Delegado" %}
-      Pagos
-    {% else %}
-      Pagos (admin)
-    {% endif %}
-  </h1>
+  <h1>Pagos</h1>
 
-  {# Barra de acciones arriba de la lista #}
   <p>
-    {# Tesorero / Admin / Presidente: pueden crear pagos manualmente #}
+    {# Tesorero / Admin / Presidente (o quien tenga add_payment) pueden crear pagos manualmente #}
     {% if perms.core.add_payment %}
       <a class="btn btn-primary" href="{% url 'core:payment_create_admin' %}">
         Crear pago
       </a>
     {% endif %}
 
-    {# Delegado o Tesorero: botón para "realizar pago" de SUS propias deudas #}
-    {% if user|has_group:"Delegado" or user|has_group:"Tesorero" %}
-      <a class="btn" href="{% url 'core:payment_create' %}">
-        Realizar pago
-      </a>
-    {% endif %}
+    {# TODOS los usuarios que entran aquí pueden iniciar el pago de sus deudas #}
+    <a class="btn" href="{% url 'core:payment_create' %}">
+      Realizar pago
+    </a>
   </p>
 
   <form method="get">
@@ -51,7 +42,7 @@
           {% endwith %}
         {% endwith %}
 
-        — 
+        —
         {# Detalle según origen #}
         {% if p.origin == "reservation" and p.reservation %}
           [Reserva] #{{ p.reservation.id }}
@@ -69,21 +60,21 @@
           — Pagado {{ p.paid_at|date:"Y-m-d H:i" }}
         {% endif %}
 
-        {# Solo Tesorero/Admin/Presidente (tienen change_payment) ven Editar/Eliminar #}
+        {# Solo quien tenga permisos de edición ve los botones de edición/borrado #}
         {% if perms.core.change_payment %}
           — <a href="{% url 'core:payment_update_admin' p.pk %}">Editar</a>
+        {% endif %}
 
-          {% if perms.core.delete_payment %}
-            — <form method="post"
-                   action="{% url 'core:payment_delete_admin' p.pk %}"
-                   style="display:inline;">
-                {% csrf_token %}
-                <button type="submit"
-                        onclick="return confirm('¿Seguro que deseas borrar este pago?');">
-                  Borrar
-                </button>
-              </form>
-          {% endif %}
+        {% if perms.core.delete_payment %}
+          — <form method="post"
+                 action="{% url 'core:payment_delete_admin' p.pk %}"
+                 style="display:inline;">
+              {% csrf_token %}
+              <button type="submit"
+                      onclick="return confirm('¿Seguro que deseas borrar este pago?');">
+                Borrar
+              </button>
+            </form>
         {% endif %}
       </li>
     {% empty %}

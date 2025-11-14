@@ -44,14 +44,8 @@ a:hover { text-decoration: underline; }
   background: var(--color-surface);
   box-shadow: var(--shadow);
 }
-.navbar {
-  display:flex; align-items:center; justify-content:space-between;
-  gap: 1rem; padding: .75rem 1rem;
-}
-.brand {
-  display:flex; align-items:center; gap:.5rem; font-weight:700; color: var(--color-primary);
-}
-.brand img { height: 28px; }
+
+/* La navbar y la marca se estilizan en components.css */
 
 /* Footer */
 .site-footer {
@@ -75,4 +69,3 @@ a:hover { text-decoration: underline; }
 @media (max-width: 900px){
   .grid-2, .grid-3 { grid-template-columns: 1fr; }
 }
-

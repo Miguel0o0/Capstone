@@ -24,7 +24,9 @@ from django.views.generic import (
     CreateView,
     DeleteView,
     DetailView,
+    FormView,
     ListView,
+    TemplateView,
     UpdateView,
     View,
 )
@@ -40,6 +42,7 @@ from .forms import (
     IncidentManageForm,
     InscriptionCreateForm,
     InscriptionManageForm,
+    MeetingForm,
     ReservationForm,
     ReservationManageForm,
 )
@@ -166,6 +169,25 @@ def is_management_user(user):
     )
 
 
+def user_es_moderador_incidencias(user):
+    """
+    Devuelve True si el usuario puede gestionar incidencias de otros vecinos.
+
+    En tu caso:
+    - Admin
+    - Secretario
+    - Presidente
+    - Delegado
+    - superuser
+    """
+    return user.is_authenticated and (
+        user.is_superuser
+        or user.groups.filter(
+            name__in=["Admin", "Secretario", "Presidente", "Delegado"]
+        ).exists()
+    )
+
+
 class IsManagementMixin(UserPassesTestMixin):
     raise_exception = True
 
@@ -206,10 +228,31 @@ def home(request):
     return render(request, "home.html")
 
 
-@login_required
-@permission_required("core.view_payment", raise_exception=True)
-def dashboard(request):
-    return render(request, "dashboard.html")
+class DashboardView(NavItemsMixin, LoginRequiredMixin, TemplateView):
+    """
+    Panel del Presidente: muestra el equipo de gestión
+    (Presidente, Secretario, Tesorero, Delegado).
+    """
+
+    template_name = "core/dashboard.html"
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        # Roles que consideramos parte de la mesa de gestión
+        roles_gestion = ["Presidente", "Secretario", "Tesorero", "Delegado"]
+
+        # Residentes cuyo usuario pertenece a alguno de esos grupos
+        equipo = (
+            Resident.objects.filter(user__groups__name__in=roles_gestion)
+            .select_related("user")
+            .order_by("user__groups__name", "nombre")
+            .distinct()
+        )
+
+        ctx["equipo_gestion"] = equipo
+        ctx["roles_gestion"] = roles_gestion
+        return ctx
 
 
 # ----------------------------
@@ -302,7 +345,7 @@ class MeetingCreateView(
 ):
     permission_required = "core.add_meeting"
     model = Meeting
-    fields = ["fecha", "lugar", "tema"]
+    form_class = MeetingForm  # 👈 antes usaba fields = [...]
     template_name = "core/meeting_form.html"
     success_url = reverse_lazy("core:meeting_list")
 
@@ -312,7 +355,7 @@ class MeetingUpdateView(
 ):
     permission_required = "core.change_meeting"
     model = Meeting
-    fields = ["fecha", "lugar", "tema"]
+    form_class = MeetingForm  # 👈 igual aquí
     template_name = "core/meeting_form.html"
     success_url = reverse_lazy("core:meeting_list")
 
@@ -417,6 +460,28 @@ class PaymentListAdminView(
             qs = qs.filter(fee__period=period)
         return qs
 
+    # 👇 NUEVO
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        u = self.request.user
+
+        is_secretary = u.groups.filter(name="Secretario").exists()
+        is_treasurer = u.groups.filter(name="Tesorero").exists()
+
+        # Título:
+        # - Secretario  -> "Pagos"
+        # - Tesorero    -> "Pagos"
+        # - Otros (Admin/Presidente, etc.) -> "Pagos (admin)"
+        ctx["page_title"] = (
+            "Pagos" if (is_secretary or is_treasurer) else "Pagos (admin)"
+        )
+
+        # Botón "Realizar pago":
+        # - TODOS lo ven, menos el Secretario
+        ctx["show_pay_button"] = not is_secretary
+
+        return ctx
+
 
 class MyPaymentsView(NavItemsMixin, LoginRequiredMixin, ListView):
     model = Payment
@@ -431,17 +496,15 @@ class MyPaymentsView(NavItemsMixin, LoginRequiredMixin, ListView):
         )
 
 
-class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, CreateView):
+class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, FormView):
     """
-    Paso 1 (vecino): seleccionar deuda pendiente.
+    Paso 1: el usuario selecciona uno de SUS pagos pendientes.
+    No se crea un Payment nuevo, solo se marca que inicia el pago.
     """
 
-    model = Payment
     form_class = ResidentPaymentStartForm
-    template_name = (
-        "core//payment/payment_start_form.html"  # plantilla simple de selección
-    )
-    success_url = reverse_lazy("core:my_payments")  # por ahora volvemos a la lista
+    template_name = "core/payment/payment_start_form.html"
+    success_url = reverse_lazy("core:my_payments")
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -449,13 +512,14 @@ class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, CreateView
         return kwargs
 
     def form_valid(self, form):
-        # Creamos el registro de pago en estado PENDIENTE (sin método de pago aún)
-        form.instance.resident = self.request.user
-        form.instance.amount = form.cleaned_data["fee"].amount
-        form.instance.status = Payment.STATUS_PENDING
+        # El Payment ya existe (lo creó la reserva o un admin).
+        payment = form.cleaned_data["payment"]
+
+        # Aquí más adelante podrás redirigir a "paso 2" (medio de pago, etc.)
+        # Por ahora solo mostramos un mensaje y volvemos a "Mis pagos".
         messages.success(
             self.request,
-            "Pago iniciado. En el siguiente paso podrás elegir el medio de pago (pendiente).",
+            f"Pago seleccionado: {payment}. En el siguiente paso se implementará la elección del medio de pago.",
         )
         return super().form_valid(form)
 
@@ -527,13 +591,22 @@ class PresidentResidentsListView(
     raise_exception = True
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("user").order_by("nombre")
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("user")
+            .prefetch_related("user__groups")
+            .order_by("nombre")
+        )
         q = self.request.GET.get("q")
         activo = self.request.GET.get("activo")
+
         if q:
             qs = qs.filter(Q(nombre__icontains=q) | Q(email__icontains=q))
+
         if activo in ("si", "no"):
             qs = qs.filter(activo=(activo == "si"))
+
         return qs
 
     def get_context_data(self, **kwargs):
@@ -644,10 +717,34 @@ class DocumentCreateView(
     success_url = reverse_lazy("core:documents-list")
 
     def form_valid(self, form):
+        # 1) Guardar el documento con el usuario que lo sube
         obj = form.save(commit=False)
         obj.subido_por = self.request.user
         obj.save()
-        return super().form_valid(form)
+
+        # 2) Crear automáticamente un aviso relacionado
+        titulo_aviso = f"Nuevo documento: {obj.titulo}"
+
+        cuerpo_aviso = (
+            "Se ha publicado un nuevo documento en la Junta de Vecinos.\n\n"
+            f"Título: {obj.titulo}\n"
+        )
+        if obj.descripcion:
+            cuerpo_aviso += f"Descripción: {obj.descripcion}\n\n"
+        cuerpo_aviso += "Puedes revisarlo en la sección Documentos del sitio."
+
+        Announcement.objects.create(
+            titulo=titulo_aviso,
+            cuerpo=cuerpo_aviso,  # 👈 aquí está el cambio
+            creado_por=self.request.user,
+        )
+
+        messages.success(
+            self.request,
+            "Documento subido correctamente y aviso publicado para los vecinos.",
+        )
+
+        return redirect(self.success_url)
 
 
 def document_download_view(request, pk: int):
@@ -894,8 +991,9 @@ class IncidentUpdateView(
     """
     Editar incidencia desde la vista de 'Mis incidencias'.
 
-    - Delegado / mesa / superuser: pueden editar cualquier incidencia.
-    - Vecino: solo puede editar incidencias que él mismo reportó.
+    - Delegado / Secretario / Presidente / Admin / superuser:
+      pueden editar cualquier incidencia.
+    - Tesorero / Vecino: solo pueden editar incidencias que ellos mismos reportaron.
     """
 
     permission_required = "core.change_incident"
@@ -908,16 +1006,11 @@ class IncidentUpdateView(
         qs = super().get_queryset()
         u = self.request.user
 
-        # Roles de gestión: pueden editar cualquier incidencia
-        if (
-            u.is_superuser
-            or u.groups.filter(
-                name__in=["Admin", "Secretario", "Presidente", "Tesorero", "Delegado"]
-            ).exists()
-        ):
+        # Moderadores (Admin / Secretario / Presidente / Delegado / superuser)
+        if user_es_moderador_incidencias(u):
             return qs
 
-        # Vecino: solo puede editar incidencias reportadas por él
+        # Tesorero / Vecino / resto: solo incidencias propias
         return qs.filter(reportado_por=u)
 
     def form_valid(self, form):
@@ -931,8 +1024,9 @@ class IncidentDeleteView(
     """
     Eliminar incidencia desde 'Mis incidencias'.
 
-    - Delegado / mesa / superuser: pueden borrar cualquier incidencia.
-    - Vecino: solo puede borrar incidencias que él mismo reportó.
+    - Delegado / Secretario / Presidente / Admin / superuser:
+      pueden borrar cualquier incidencia.
+    - Tesorero / Vecino: solo pueden borrar incidencias que ellos mismos reportaron.
     """
 
     permission_required = "core.delete_incident"
@@ -944,16 +1038,11 @@ class IncidentDeleteView(
         qs = super().get_queryset()
         u = self.request.user
 
-        # Roles de gestión: pueden borrar cualquier incidencia
-        if (
-            u.is_superuser
-            or u.groups.filter(
-                name__in=["Admin", "Secretario", "Presidente", "Tesorero", "Delegado"]
-            ).exists()
-        ):
+        # Moderadores de incidencias
+        if user_es_moderador_incidencias(u):
             return qs
 
-        # Vecino: solo puede borrar incidencias reportadas por él
+        # Tesorero / Vecino / resto: solo incidencias propias
         return qs.filter(reportado_por=u)
 
 
@@ -1155,9 +1244,23 @@ class InscriptionCreateView(CreateView):
     template_name = "core/inscription/form.html"
     success_url = reverse_lazy("core:home")
 
+    def get_initial(self):
+        """
+        Si el usuario está autenticado y tiene email, lo prellenamos en el formulario.
+        """
+        initial = super().get_initial()
+        u = self.request.user
+        if u.is_authenticated and getattr(u, "email", ""):
+            initial["email"] = u.email
+        return initial
+
     def form_valid(self, form):
         if self.request.user.is_authenticated:
             form.instance.submitted_by = self.request.user
+            # Por si no llenó el correo, usamos el del usuario
+            if not form.instance.email and self.request.user.email:
+                form.instance.email = self.request.user.email
+
         messages.success(
             self.request,
             "Tu solicitud fue enviada. La Junta revisará tu documento para validar tu domicilio.",

@@ -10,6 +10,7 @@ from .models import (
     Fee,
     Incident,
     InscriptionEvidence,
+    Meeting,
     Payment,
     Reservation,
     Resource,
@@ -31,15 +32,40 @@ class AnnouncementForm(forms.ModelForm):
 
 
 # -------------------------------------------------
+# REUNIONES
+# -------------------------------------------------
+# -------------------------------------------------
+# REUNIONES
+# -------------------------------------------------
+class MeetingForm(forms.ModelForm):
+    """
+    Formulario de reuniones con fecha + hora separadas
+    (un input de calendario y otro de hora).
+    """
+
+    fecha = forms.SplitDateTimeField(
+        widget=forms.SplitDateTimeWidget(
+            date_attrs={"type": "date"},  # calendario
+            time_attrs={"type": "time"},  # selector de hora
+        ),
+        label="Fecha y hora",
+    )
+
+    class Meta:
+        model = Meeting
+        fields = ["fecha", "lugar", "tema"]
+
+
+# -------------------------------------------------
 # PAGOS
 # -------------------------------------------------
 class PaymentForm(forms.ModelForm):
     class Meta:
         model = Payment
-        # Simplificado para el vecino: solo elige la cuota/pago pendiente
+        # Simplificado para el vecino: solo elige la deuda pendiente
         fields = ["fee"]
         labels = {
-            "fee": "Seleccionar pago pendiente",
+            "fee": "Seleccionar deuda pendiente",
         }
         widgets = {}
 
@@ -76,48 +102,69 @@ class AdminPaymentForm(forms.ModelForm):
         fields = ["resident", "fee", "amount", "status", "paid_at"]
         labels = {
             "resident": "Vecino / usuario",
-            "fee": "Cuota",
+            "fee": "Deuda",  # <-- aquí el cambio
             "amount": "Monto",
             "status": "Estado",
             "paid_at": "Fecha de pago",
         }
         widgets = {
-            # date si quieres solo fecha, sin hora:
             "paid_at": forms.DateInput(attrs={"type": "date"}),
-            # si prefieres fecha + hora, usa:
-            # "paid_at": forms.DateTimeInput(
-            #     attrs={"type": "datetime-local"}
-            # ),
         }
 
 
-class ResidentPaymentStartForm(forms.ModelForm):
+class PendingPaymentChoiceField(forms.ModelChoiceField):
     """
-    Formulario mínimo para el vecino en el Paso 1 del pago:
-    solo seleccionar una deuda pendiente (Fee sin Payment PAID del usuario).
+    Campo para elegir un Payment pendiente del usuario actual
+    con una etiqueta legible en el combo.
     """
 
-    class Meta:
-        model = Payment
-        fields = ["fee"]
-        labels = {"fee": "Seleccionar deuda pendiente"}
+    def label_from_instance(self, obj: Payment) -> str:
+        # Deuda por reserva
+        if obj.origin == Payment.ORIGIN_RESERVATION and obj.reservation:
+            recurso = (
+                obj.reservation.resource.nombre
+                if obj.reservation.resource
+                else "Reserva"
+            )
+            fecha = (
+                obj.reservation.start_at.strftime("%d/%m/%Y %H:%M")
+                if obj.reservation.start_at
+                else ""
+            )
+            return f"Reserva de {recurso} ({fecha}) - ${obj.amount}"
+
+        # Deuda por cuota
+        if obj.origin == Payment.ORIGIN_FEE and obj.fee:
+            return f"{obj.fee.period} - ${obj.amount}"
+
+        # Fallback genérico
+        return f"${obj.amount} - {obj.get_status_display()}"
+
+
+class ResidentPaymentStartForm(forms.Form):
+    """
+    Paso 1: el usuario elige uno de SUS pagos pendientes.
+    No creamos un pago nuevo, solo seleccionamos uno existente.
+    """
+
+    payment = PendingPaymentChoiceField(
+        label="Seleccionar pago pendiente",
+        queryset=Payment.objects.none(),
+        empty_label="Selecciona una deuda",
+    )
 
     def __init__(self, *args, **kwargs):
         request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
 
-        user = getattr(request, "user", None)
-        qs = Fee.objects.all()
+        qs = Payment.objects.filter(status=Payment.STATUS_PENDING)
 
-        if user and user.is_authenticated:
-            # Mostrar fees que NO tienen un pago marcado como PAID por este usuario
-            qs = qs.exclude(
-                payments__resident=user,
-                payments__status=Payment.STATUS_PAID,
-            )
+        # Filtrar por el usuario actual
+        if request is not None and request.user.is_authenticated:
+            qs = qs.filter(resident=request.user)
 
-        self.fields["fee"].queryset = qs.order_by("-id")
-        self.fields["fee"].empty_label = "— Selecciona una deuda —"
+        # Ordenar como quieras (últimos primero, por ejemplo)
+        self.fields["payment"].queryset = qs.order_by("-created_at")
 
 
 # -------------------------------------------------
@@ -424,9 +471,28 @@ class ReservationManageForm(forms.ModelForm):
 class InscriptionCreateForm(forms.ModelForm):
     class Meta:
         model = InscriptionEvidence
-        fields = ["file"]
+        fields = ["email", "file"]  # 👈 ahora pedimos correo + boleta
+
+        labels = {
+            "email": "Correo electrónico",
+            "file": "Boleta de servicio",
+        }
+        help_texts = {
+            "email": "Usaremos este correo para avisarte si tu inscripción fue aprobada o rechazada.",
+            "file": "Sube una boleta de servicio (agua, luz, gas). Formatos: PDF/JPG/PNG. Máx. 5 MB.",
+        }
         widgets = {
-            "file": forms.ClearableFileInput(attrs={"accept": ".pdf,.jpg,.jpeg,.png"})
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "input",
+                    "placeholder": "tu@correo.com",
+                }
+            ),
+            "file": forms.ClearableFileInput(
+                attrs={
+                    "class": "input",
+                }
+            ),
         }
 
 

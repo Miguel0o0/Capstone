@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Equipo de gestión{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>Equipo de gestión</h1>
+  <p>Personas que forman la mesa de la Junta de Vecinos.</p>
+
+  {% if equipo_gestion %}
+    <table class="table table-striped" style="margin-top: 1.5rem;">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Rol(es)</th>
+          <th>Email</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for vecino in equipo_gestion %}
+          <tr>
+            <td>{{ vecino.nombre }}</td>
+            <td>
+              {% for g in vecino.user.groups.all %}
+                {{ g.name }}{% if not forloop.last %}, {% endif %}
+              {% endfor %}
+            </td>
+            <td>{{ vecino.email }}</td>
+            <td>
+              {% if vecino.activo %}
+                Activo
+              {% else %}
+                Inactivo
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No hay integrantes de equipo de gestión registrados aún.</p>
+  {% endif %}
+</div>
+{% endblock %}

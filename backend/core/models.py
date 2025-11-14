@@ -5,6 +5,7 @@ import uuid
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models import Q
@@ -120,18 +121,29 @@ STATUS_CHOICES = [
 
 class Fee(models.Model):
     period = models.CharField(
-        "Periodo (YYYY-MM)",
-        max_length=7,
-        unique=True,
-        help_text="Ej: 2025-10",
+        "Nombre de deuda",
+        max_length=100,
+        help_text="Ej: Cancha fútbol 1, Cancha básquet 2, Cancha pádel 1, etc.",
     )
-    amount = models.DecimalField("Monto", max_digits=9, decimal_places=2)
+
+    # <- ahora el monto es OPCIONAL y pensado como sugerido
+    amount = models.DecimalField(
+        "Monto sugerido",
+        max_digits=10,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
 
     class Meta:
-        ordering = ["-period"]
+        verbose_name = "Deuda"
+        verbose_name_plural = "Deudas"
 
     def __str__(self):
-        return f"Cuota {self.period} (${self.amount})"
+        # Si no quieres que salga el monto en el combo, deja sólo el nombre:
+        return self.period
+        # (si algún día quieres mostrar también el monto sugerido:
+        # return f"{self.period} (${self.amount})" if self.amount is not None else self.period
 
 
 class Payment(models.Model):
@@ -147,7 +159,7 @@ class Payment(models.Model):
     )
 
     # Origen del pago
-    ORIGIN_FEE = "fee"                # cuota normal
+    ORIGIN_FEE = "fee"  # cuota normal
     ORIGIN_RESERVATION = "reservation"  # deuda por reserva de recurso
 
     ORIGIN_CHOICES = (
@@ -526,7 +538,6 @@ class Resource(models.Model):
         return bool(self.precio_por_hora and self.precio_por_hora > 0)
 
 
-
 class Reservation(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pendiente"
@@ -627,10 +638,23 @@ class InscriptionEvidence(models.Model):
         REJECTED = "REJECTED", "Rechazada"
 
     file = models.FileField(
-        upload_to=evidence_upload_to, validators=[validate_evidence]
+        upload_to=evidence_upload_to,
+        validators=[validate_evidence],
     )
+
+    # 👇 Nuevo campo de correo de contacto
+    email = models.EmailField(
+        "Correo de contacto",
+        max_length=254,
+        blank=True,
+        null=True,
+        help_text="Usaremos este correo para avisarte si tu inscripción fue aprobada o rechazada.",
+    )
+
     status = models.CharField(
-        max_length=10, choices=Status.choices, default=Status.PENDING
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
     )
 
     submitted_by = models.ForeignKey(
@@ -641,7 +665,10 @@ class InscriptionEvidence(models.Model):
         related_name="insc_submissions",
     )
     resident = models.ForeignKey(
-        Resident, null=True, blank=True, on_delete=models.SET_NULL
+        Resident,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
     )
 
     validated_by = models.ForeignKey(
@@ -657,17 +684,48 @@ class InscriptionEvidence(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def approve(self, user, note=""):
+    def approve(self, user, note: str = ""):
         self.status = self.Status.APPROVED
         self.validated_by = user
         self.validated_at = timezone.now()
         self.note = note
 
-    def reject(self, user, note=""):
+        # Avisar por correo si el solicitante lo dejó
+        if self.email:
+            mensaje = (
+                "Hola,\n\n"
+                "Tu solicitud de inscripción en la Junta de Vecinos ha sido APROBADA.\n"
+                f"Nota: {note or 'Sin comentarios adicionales.'}\n\n"
+                "¡Te damos la bienvenida!\n"
+            )
+            send_mail(
+                subject="Inscripción aprobada – Junta de Vecinos",
+                message=mensaje,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                recipient_list=[self.email],
+                fail_silently=True,
+            )
+
+    def reject(self, user, note: str = ""):
         self.status = self.Status.REJECTED
         self.validated_by = user
         self.validated_at = timezone.now()
         self.note = note
+
+        if self.email:
+            mensaje = (
+                "Hola,\n\n"
+                "Tu solicitud de inscripción en la Junta de Vecinos ha sido RECHAZADA.\n"
+                f"Motivo: {note or 'Sin comentarios adicionales.'}\n\n"
+                "Si crees que se trata de un error, puedes volver a enviar tus datos.\n"
+            )
+            send_mail(
+                subject="Inscripción rechazada – Junta de Vecinos",
+                message=mensaje,
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+                recipient_list=[self.email],
+                fail_silently=True,
+            )
 
     def __str__(self):
         return f"Inscripción #{self.pk} - {self.get_status_display()}"

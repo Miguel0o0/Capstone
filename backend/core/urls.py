@@ -3,6 +3,7 @@ from django.urls import path
 
 from . import views
 from .views import (
+    DashboardView,
     IncidentDeleteView,
     IncidentUpdateView,
     InscriptionCreateView,
@@ -17,7 +18,7 @@ urlpatterns = [
     # Página principal y panel
     # -----------------------------
     path("", views.home, name="home"),
-    path("panel/", views.dashboard, name="dashboard"),
+    path("panel/", DashboardView.as_view(), name="dashboard"),
     # -----------------------------
     # Avisos
     # -----------------------------

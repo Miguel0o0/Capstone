@@ -66,9 +66,13 @@ class MinutesAdmin(admin.ModelAdmin):
 # -------
 @admin.register(Fee)
 class FeeAdmin(admin.ModelAdmin):
-    list_display = ("period", "amount")
+    # Lo que se ve en la tabla
+    list_display = ("period",)
+
+    # Lo que se edita en el formulario
+    fields = ("period",)
+
     search_fields = ("period",)
-    ordering = ("-period",)
 
 
 # --------
