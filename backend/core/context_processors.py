@@ -5,6 +5,7 @@ def nav_items(request):
     u = request.user
     items = []
 
+    # Usuarios anónimos: sin menú; base.html muestra "Quiero unirme" + "Iniciar sesión"
     if not u.is_authenticated:
         return {"nav_items": items}
 
@@ -38,7 +39,6 @@ def nav_items(request):
         )
     else:
         # Resto de roles (Admin, Secretario, Presidente, Delegado, Tesorero)
-        # usan la vista admin de pagos, pero el título dentro ya dice "Pagos".
         items.append(
             {
                 "label": "Pagos",
@@ -46,18 +46,17 @@ def nav_items(request):
             }
         )
 
-    # Resto de secciones comunes
+    # ---- Resto de secciones comunes
     items.append({"label": "Incidencias", "url": reverse("core:incident_mine")})
     items.append({"label": "Reservas", "url": reverse("core:reservation_mine")})
     items.append({"label": "Documentos", "url": reverse("core:documents-list")})
 
     # ---- Inscripciones
-    # Si el usuario tiene permiso para revisar inscripciones,
-    # SOLO mostramos el panel admin. Si no, mostramos el formulario normal.
-    if u.has_perm("core.view_inscriptionevidence"):
-        items.append({"label": "Inscripciones", "url": reverse("core:insc_admin")})
-    else:
-        items.append({"label": "Inscripciones", "url": reverse("core:insc_create")})
+    # SOLO Admin / Secretario / Presidente / superuser ven el panel de inscripciones.
+    # Los vecinos / delegado / tesorero NO ven este ítem.
+    if u.is_superuser or is_admin or is_secretary or is_president:
+        if u.has_perm("core.view_inscriptionevidence"):
+            items.append({"label": "Inscripciones", "url": reverse("core:insc_admin")})
 
     # ---- Gestión general (Admin / Secretario / Presidente, pero NO Delegado)
     if is_management_general and not is_delegate:

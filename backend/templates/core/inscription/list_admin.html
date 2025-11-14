@@ -6,31 +6,35 @@
 <div class="container">
   <h1>Inscripciones</h1>
 
-  <!-- Filtro por estado -->
-  <form method="get" class="mb-3 d-flex gap-2 align-items-end">
+  {# Filtro por estado #}
+  <form method="get" class="grid" style="grid-template-columns: auto auto auto; gap:.75rem; max-width:420px; margin:1rem 0;">
     <div>
-      <label class="form-label">Estado</label>
-      <select name="status" class="form-select">
+      <label class="form-label" style="display:block; font-weight:600; margin-bottom:.25rem;">
+        Estado
+      </label>
+      <select name="status" class="select">
         <option value="">Todos</option>
         <option value="PENDING"  {% if request.GET.status == "PENDING" %}selected{% endif %}>Pendiente</option>
         <option value="APPROVED" {% if request.GET.status == "APPROVED" %}selected{% endif %}>Aprobada</option>
         <option value="REJECTED" {% if request.GET.status == "REJECTED" %}selected{% endif %}>Rechazada</option>
       </select>
     </div>
-    <button class="btn btn-outline-primary">Filtrar</button>
-    {% if request.GET.status %}
-      <a href="{% url 'core:insc_admin' %}" class="btn btn-light">Limpiar</a>
-    {% endif %}
+    <div style="display:flex; align-items:flex-end; gap:.5rem;">
+      <button class="btn btn-outline" type="submit">Filtrar</button>
+      {% if request.GET.status %}
+        <a href="{% url 'core:insc_admin' %}" class="btn btn-outline">Limpiar</a>
+      {% endif %}
+    </div>
   </form>
 
-  <div class="table-responsive">
-    <table class="table table-striped align-middle">
+  <div class="card" style="margin-top:1rem;">
+    <table class="table">
       <thead>
         <tr>
           <th>ID</th>
           <th>Archivo</th>
-          <th>Enviado por</th>
-          <th>Residente</th>
+          <th>Enviado por</th>   {# nombre o usuario #}
+          <th>Dirección</th>      {# antes “Residente” #}
           <th>Estado</th>
           <th>Creada</th>
           <th>Acciones</th>
@@ -43,8 +47,27 @@
           <td>
             <a href="{{ obj.file.url }}" target="_blank" rel="noopener">Ver archivo</a>
           </td>
-          <td>{{ obj.submitted_by|default:"—" }}</td>
-          <td>{{ obj.resident|default:"—" }}</td>
+
+          {# Enviado por: nombre del solicitante si existe; si no, el usuario logueado #}
+          <td>
+            {% if obj.applicant_name %}
+              {{ obj.applicant_name }}
+            {% elif obj.submitted_by %}
+              {{ obj.submitted_by }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+
+          {# Dirección #}
+          <td>
+            {% if obj.applicant_address %}
+              {{ obj.applicant_address }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+
           <td>
             {% if obj.status == "PENDING" %}
               <span class="badge bg-warning text-dark">Pendiente</span>
@@ -56,25 +79,39 @@
           </td>
           <td>{{ obj.created_at|date:"d/m/Y H:i" }}</td>
           <td>
-            <a class="btn btn-sm btn-primary" href="{% url 'core:insc_manage' obj.id %}">Gestionar</a>
+            <a class="btn btn-outline btn-sm" href="{% url 'core:insc_manage' obj.id %}">
+              Gestionar
+            </a>
           </td>
         </tr>
       {% empty %}
-        <tr><td colspan="7" class="text-center text-muted">Sin resultados.</td></tr>
+        <tr>
+          <td colspan="7" style="text-align:center; color:#9ca3af;">
+            Sin resultados.
+          </td>
+        </tr>
       {% endfor %}
       </tbody>
     </table>
   </div>
 
   {% if is_paginated %}
-    <nav class="mt-3">
+    <nav class="mt-3" style="margin-top:1rem;">
       <ul class="pagination">
         {% if page_obj.has_previous %}
-          <li class="page-item"><a class="page-link" href="?{% if request.GET.status %}status={{request.GET.status}}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a></li>
+          <li class="page-item">
+            <a class="page-link" href="?{% if request.GET.status %}status={{request.GET.status}}&{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
+          </li>
         {% endif %}
-        <li class="page-item disabled"><span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span></li>
+        <li class="page-item disabled">
+          <span class="page-link">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+          </span>
+        </li>
         {% if page_obj.has_next %}
-          <li class="page-item"><a class="page-link" href="?{% if request.GET.status %}status={{request.GET.status}}&{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a></li>
+          <li class="page-item">
+            <a class="page-link" href="?{% if request.GET.status %}status={{request.GET.status}}&{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a>
+          </li>
         {% endif %}
       </ul>
     </nav>

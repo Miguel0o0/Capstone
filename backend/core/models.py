@@ -637,18 +637,36 @@ class InscriptionEvidence(models.Model):
         APPROVED = "APPROVED", "Aprobada"
         REJECTED = "REJECTED", "Rechazada"
 
+    # Boleta subida
     file = models.FileField(
         upload_to=evidence_upload_to,
         validators=[validate_evidence],
     )
 
-    # 👇 Nuevo campo de correo de contacto
+    # 👇 Nuevos campos para ANÓNIMOS
+    applicant_name = models.CharField(
+        "Nombre del solicitante",
+        max_length=150,
+        blank=True,
+        null=True,
+    )
+    applicant_address = models.CharField(
+        "Dirección",
+        max_length=255,
+        blank=True,
+        null=True,
+    )
+
+    # Correo de contacto
     email = models.EmailField(
         "Correo de contacto",
         max_length=254,
         blank=True,
         null=True,
-        help_text="Usaremos este correo para avisarte si tu inscripción fue aprobada o rechazada.",
+        help_text=(
+            "Usaremos este correo para avisarte si tu inscripción "
+            "fue aprobada o rechazada."
+        ),
     )
 
     status = models.CharField(
@@ -657,6 +675,7 @@ class InscriptionEvidence(models.Model):
         default=Status.PENDING,
     )
 
+    # Si el que envía está logueado, lo guardamos aquí
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -664,6 +683,8 @@ class InscriptionEvidence(models.Model):
         on_delete=models.SET_NULL,
         related_name="insc_submissions",
     )
+
+    # Si se vincula a un Resident concreto
     resident = models.ForeignKey(
         Resident,
         null=True,
@@ -683,6 +704,8 @@ class InscriptionEvidence(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # ---------- Lógica de aprobación / rechazo ----------
 
     def approve(self, user, note: str = ""):
         self.status = self.Status.APPROVED

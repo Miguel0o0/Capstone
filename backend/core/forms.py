@@ -465,27 +465,49 @@ class ReservationManageForm(forms.ModelForm):
         self.fields["end_at"].input_formats = [_DT_FMT]
 
 
-# -------------------------------------------------
-# INSCRIPCIONES
-# -------------------------------------------------
+# --------------------------------------------------
+# INSCRIPCIONES – formulario público (anónimo)
+# --------------------------------------------------
 class InscriptionCreateForm(forms.ModelForm):
     class Meta:
         model = InscriptionEvidence
-        fields = ["email", "file"]  # 👈 ahora pedimos correo + boleta
+        fields = ["applicant_name", "applicant_address", "email", "file"]
 
         labels = {
+            "applicant_name": "Nombre completo",
+            "applicant_address": "Dirección",
             "email": "Correo electrónico",
             "file": "Boleta de servicio",
         }
+
         help_texts = {
-            "email": "Usaremos este correo para avisarte si tu inscripción fue aprobada o rechazada.",
-            "file": "Sube una boleta de servicio (agua, luz, gas). Formatos: PDF/JPG/PNG. Máx. 5 MB.",
+            "email": (
+                "Usaremos este correo para avisarte si tu inscripción fue "
+                "aprobada o rechazada."
+            ),
+            "file": (
+                "Sube una boleta de servicio (agua, luz, gas). "
+                "Formatos: PDF/JPG/PNG. Máx. 5 MB."
+            ),
         }
+
         widgets = {
+            "applicant_name": forms.TextInput(
+                attrs={
+                    "class": "input",
+                    "placeholder": "Tu nombre completo",
+                }
+            ),
+            "applicant_address": forms.TextInput(
+                attrs={
+                    "class": "input",
+                    "placeholder": "Tu dirección (calle, número, depto, etc.)",
+                }
+            ),
             "email": forms.EmailInput(
                 attrs={
                     "class": "input",
-                    "placeholder": "tu@correo.com",
+                    "placeholder": "tucorreo@ejemplo.com",
                 }
             ),
             "file": forms.ClearableFileInput(
@@ -496,6 +518,9 @@ class InscriptionCreateForm(forms.ModelForm):
         }
 
 
+# --------------------------------------------------
+# INSCRIPCIONES – formulario de gestión (admin)
+# --------------------------------------------------
 class InscriptionManageForm(forms.ModelForm):
     class Meta:
         model = InscriptionEvidence
