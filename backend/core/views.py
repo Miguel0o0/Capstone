@@ -5,7 +5,6 @@ from io import BytesIO
 from django import forms
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import (
     LoginRequiredMixin,
     PermissionRequiredMixin,
@@ -14,7 +13,7 @@ from django.contrib.auth.mixins import (
 from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponseForbidden
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, redirect, render, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -45,6 +44,9 @@ from .forms import (
     MeetingForm,
     ReservationForm,
     ReservationManageForm,
+    PaymentReviewForm,
+    PaymentReviewForm,
+    PaymentReceiptUploadForm
 )
 from .models import (
     Announcement,
@@ -483,17 +485,15 @@ class PaymentListAdminView(
         return ctx
 
 
-class MyPaymentsView(NavItemsMixin, LoginRequiredMixin, ListView):
-    model = Payment
+class MyPaymentsView(LoginRequiredMixin, ListView):
     template_name = "core/payment/payment_list_mine.html"
     context_object_name = "payments"
 
     def get_queryset(self):
-        return (
-            Payment.objects.filter(resident=self.request.user)
-            .select_related("fee")
-            .order_by("-created_at")
-        )
+        return Payment.objects.filter(
+            resident=self.request.user,
+            status=Payment.STATUS_PENDING,
+        ).order_by("-created_at")
 
 
 class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, FormView):
@@ -547,26 +547,60 @@ class PaymentCreateAdminView(
 
 
 # --- Pagos: edición Tesorería/Admin ---
-class PaymentUpdateAdminView(
-    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, UpdateView
-):
+class PaymentReviewAdminView(PermissionRequiredMixin, UpdateView):
     permission_required = "core.change_payment"
     model = Payment
-    form_class = PaymentForm
-    template_name = "core/payment/payment_form.html"
+    form_class = PaymentReviewForm
+    template_name = "core/payment/review.html"  # <-- carpeta + archivo correcto
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["request"] = self.request
-        return kwargs
+    def get_queryset(self):
+        # Si quieres ver todos los pagos:
+        return Payment.objects.all()
+        # (más adelante se puede filtrar por estado si quieres)
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["is_admin_payment"] = True
-        return context
+    def form_valid(self, form):
+        payment = form.save(commit=False)
 
-    def get_success_url(self):
-        return reverse_lazy("core:payment_list_admin")
+        # Si lo marcan como pagado:
+        if payment.status == Payment.STATUS_PAID:
+            # Método helper del modelo (si lo tienes)
+            if hasattr(payment, "mark_as_paid"):
+                payment.mark_as_paid(
+                    review_comment=form.cleaned_data.get("review_comment", ""),
+                    staff_user=self.request.user,
+                )
+            else:
+                # Versión explícita por si no tienes mark_as_paid
+                from django.utils import timezone
+
+                payment.review_comment = form.cleaned_data.get("review_comment", "")
+                payment.reviewed_by = self.request.user
+                payment.reviewed_at = timezone.now()
+                payment.paid_at = timezone.now()
+                payment.save(
+                    update_fields=[
+                        "status",
+                        "review_comment",
+                        "reviewed_by",
+                        "reviewed_at",
+                        "paid_at",
+                    ]
+                )
+        else:
+            # Cualquier otro estado (pending, pending_review, cancelled)
+            payment.review_comment = form.cleaned_data.get("review_comment", "")
+            if not payment.reviewed_by:
+                from django.utils import timezone
+
+                payment.reviewed_by = self.request.user
+                payment.reviewed_at = timezone.now()
+            payment.save(
+                update_fields=["status", "review_comment", "reviewed_by", "reviewed_at"]
+            )
+
+        messages.success(self.request, "Pago actualizado correctamente.")
+        return redirect("core:payment_list_admin")
+
 
 
 # --- Pagos: borrado Tesorería/Admin ---
@@ -575,6 +609,81 @@ class PaymentDeleteAdminView(LoginRequiredMixin, PermissionRequiredMixin, Delete
     template_name = "core/payment/payment_confirm_delete.html"
     permission_required = "core.delete_payment"
     success_url = reverse_lazy("core:payment_list_admin")
+    
+class PaymentReceiptUploadView(LoginRequiredMixin, UpdateView):
+    model = Payment
+    form_class = PaymentReceiptUploadForm
+    template_name = "core/payment/payment_receipt_form.html"
+
+    def get_queryset(self):
+        # Solo permitir subir comprobante de pagos PENDIENTES del usuario
+        return Payment.objects.filter(
+            resident=self.request.user,
+            status=Payment.STATUS_PENDING,
+        )
+
+    def form_valid(self, form):
+        obj = form.save(commit=False)
+        obj.receipt_uploaded_at = timezone.now()
+        obj.status = Payment.STATUS_PENDING_REVIEW  # 👈 importante
+        obj.save()
+
+        messages.success(
+            self.request,
+            "Comprobante subido correctamente. El tesorero revisará tu pago.",
+        )
+        return redirect("core:my_payments")
+    
+class PaymentReviewView(PermissionRequiredMixin, UpdateView):
+    permission_required = "core.change_payment"
+    model = Payment
+    form_class = PaymentReviewForm
+    # usamos el template que está en la carpeta payment
+    template_name = "core/payment/review.html"
+
+    def get_queryset(self):
+        # aquí ves todos los pagos; si quieres filtrar por estado, lo haces acá
+        return Payment.objects.all()
+
+    def form_valid(self, form):
+        from django.utils import timezone
+
+        payment = form.save(commit=False)
+
+        # registrar quién revisó y cuándo
+        payment.reviewed_by = self.request.user
+        payment.reviewed_at = timezone.now()
+
+        # si lo marcan como pagado y no tenía fecha de pago, la seteamos
+        if payment.status == Payment.STATUS_PAID and payment.paid_at is None:
+            payment.paid_at = timezone.now()
+        # si prefieres que al marcarlo como pendiente se borre la fecha de pago:
+        # elif payment.status != Payment.STATUS_PAID:
+        #     payment.paid_at = None
+
+        payment.save(update_fields=[
+            "status",
+            "review_comment",
+            "reviewed_by",
+            "reviewed_at",
+            "paid_at",
+        ])
+
+        messages.success(self.request, "Pago actualizado correctamente.")
+        return redirect("core:payment_list_admin")
+    
+# Pagos – vista para que los perfiles de gestión suban su propio comprobante
+class MyPaymentsForStaffView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    permission_required = "core.view_payment"   # el mismo permiso que uses en PaymentListAdminView
+    model = Payment
+    template_name = "core/payment/payment_list_mine.html"
+    context_object_name = "payments"
+
+    def get_queryset(self):
+        # mismos pagos que ve el vecino: solo los del usuario logueado
+        return Payment.objects.filter(resident=self.request.user).order_by("-created_at")
+
+
 
 
 # ------------------------------------------------
@@ -1121,64 +1230,81 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
             return tipo
         return "cancha_futbol"  # por defecto
 
-    # -----------------------------
-    # 2) Pasar tipo al formulario
-    # -----------------------------
     def get_initial(self):
         initial = super().get_initial()
         initial["tipo"] = self.get_tipo_actual()
         return initial
 
-    def get_form_kwargs(self):
-        return super().get_form_kwargs()
-
-    # (si tu ReservationForm no espera 'user' o 'tipo', puedes
-    # quitar esas claves, pero en los chats anteriores lo veníamos usando así)
-
     # -----------------------------
-    # 3) Crear reserva + Payment
+    # 2) Crear reserva + Payment
     # -----------------------------
     def form_valid(self, form):
+        user = self.request.user
+
+        # 2.1 Ficha de vecino
+        resident = Resident.objects.filter(user=user).first()
+        if not resident:
+            messages.error(self.request, "No se encontró tu ficha de vecino.")
+            return redirect("core:reservation_mine")
+
+        # 2.2 Bloquear si ya tiene una reserva con deuda pendiente
+        tiene_deuda_reserva = Payment.objects.filter(
+            resident=user,                         # Payment.resident es AUTH_USER_MODEL
+            origin=Payment.ORIGIN_RESERVATION,
+            status=Payment.STATUS_PENDING,
+        ).exists()
+
+        if tiene_deuda_reserva:
+            messages.error(
+                self.request,
+                "Ya tienes una reserva pendiente. Debes pagar o cancelar esa "
+                "reserva antes de crear una nueva.",
+            )
+            return redirect("core:reservation_mine")
+
+        # 2.3 Guardar la reserva asociada al usuario y al vecino
         reservation = form.save(commit=False)
-        reservation.requested_by = self.request.user
-
-        # Si no viene end_at, sumamos 1 hora
-        if reservation.start_at and not reservation.end_at:
-            reservation.end_at = reservation.start_at + timezone.timedelta(hours=1)
-
+        reservation.requested_by = user
+        reservation.resident = resident
         reservation.save()
 
-        # Crear deuda automática por reserva (si el recurso es de pago)
-        resource = reservation.resource
-        if resource and hasattr(resource, "requiere_pago") and resource.requiere_pago():
-            Payment.create_for_reservation(reservation)
+        # 2.4 Crear el pago pendiente por la reserva
+        Payment.create_for_reservation(reservation)
 
         messages.success(self.request, "Reserva creada correctamente.")
-        return super().form_valid(form)
+        return redirect("core:reservation_mine")
 
     def get_success_url(self):
         return reverse_lazy("core:reservation_mine")
 
-
 class ReservationCancelView(LoginRequiredMixin, View):
     def post(self, request, pk):
-        reserva = get_object_or_404(Reservation, pk=pk)
+        reserva = get_object_or_404(
+            Reservation,
+            pk=pk,
+            requested_by=request.user,   # ajusta si tu campo se llama distinto
+        )
 
-        # 👇 Solo quien creó la reserva puede cancelarla
-        if reserva.requested_by != request.user:
-            return HttpResponseForbidden(
-                "No puedes cancelar reservas de otros usuarios."
-            )
-
-        if reserva.status in [
-            Reservation.Status.PENDING,
-            Reservation.Status.APPROVED,
-        ]:
+        # Solo si aún está pendiente
+        if reserva.status == Reservation.Status.PENDING:
             reserva.status = Reservation.Status.CANCELLED
-            reserva.cancelled_at = timezone.now()
+            reserva.cancelled_at = timezone.now() if hasattr(reserva, "cancelled_at") else reserva.cancelled_at
             reserva.save()
 
-        messages.success(request, "Reserva cancelada.")
+            # Anular pago pendiente asociado a esa reserva
+            Payment.objects.filter(
+                reservation=reserva,
+                origin=Payment.ORIGIN_RESERVATION,
+                status=Payment.STATUS_PENDING,
+            ).update(status=Payment.STATUS_CANCELLED)
+
+            messages.success(
+                request,
+                "Reserva cancelada y pago pendiente anulado."
+            )
+        else:
+            messages.info(request, "Esta reserva ya no se puede cancelar.")
+
         return redirect("core:reservation_mine")
 
 

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Revisión de pago{% endblock %}
+
+{% block content %}
+  <h1>Revisión de pago</h1>
+
+  <p>
+    <strong>Vecino:</strong>
+    {{ object.resident }}
+  </p>
+
+  <p>
+    <strong>Concepto:</strong>
+    {% if object.origin == "reservation" and object.reservation %}
+      [Reserva] {{ object.reservation.resource.nombre }}
+      ({{ object.reservation.start_at|date:"d/m/Y H:i" }})
+    {% elif object.origin == "fee" and object.fee %}
+      [Cuota] {{ object.fee.period }}
+    {% else %}
+      [Pago]
+    {% endif %}
+  </p>
+
+  <p>
+    <strong>Monto:</strong> ${{ object.amount }}
+  </p>
+
+  <p>
+    <strong>Estado actual:</strong> {{ object.get_status_display }}
+    {% if object.paid_at %}
+      — Pagado el {{ object.paid_at|date:"d/m/Y H:i" }}
+    {% endif %}
+  </p>
+
+  <p>
+    <strong>Comprobante:</strong>
+    {% if object.receipt_file %}
+      <a href="{{ object.receipt_file.url }}" target="_blank" rel="noopener">
+        Ver comprobante
+      </a>
+      {% if object.receipt_uploaded_at %}
+        (subido {{ object.receipt_uploaded_at|date:"d/m/Y H:i" }})
+      {% endif %}
+    {% else %}
+      <em>El vecino aún no ha subido comprobante.</em>
+    {% endif %}
+  </p>
+
+  <hr>
+
+  <form method="post">
+    {% csrf_token %}
+    <div style="max-width: 480px;">
+      {{ form.as_p }}
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{% url 'core:payment_list_admin' %}" class="btn btn-secondary">
+      Volver
+    </a>
+  </form>
+{% endblock %}

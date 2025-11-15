@@ -165,6 +165,42 @@ class ResidentPaymentStartForm(forms.Form):
 
         # Ordenar como quieras (últimos primero, por ejemplo)
         self.fields["payment"].queryset = qs.order_by("-created_at")
+        
+class PaymentReceiptUploadForm(forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ["receipt_file"]   # 👈 SOLO este campo, nada de receipt_note
+
+        widgets = {
+            "receipt_file": forms.ClearableFileInput(attrs={"class": "input"}),
+        }
+        labels = {
+            "receipt_file": "Comprobante de transferencia",
+        }
+        help_texts = {
+            "receipt_file": "Sube el comprobante de la transferencia (PDF/JPG/PNG).",
+        }
+
+class PaymentReviewForm(forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ["status", "review_comment"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["status"].label = "Estado del pago"
+        self.fields["review_comment"].label = "Comentario para el vecino"
+        self.fields["review_comment"].required = False
+
+        
+class PaymentReceiptForm(forms.ModelForm):
+    class Meta:
+        model = Payment
+        fields = ["receipt_file"]
+        labels = {
+            "receipt_file": "Comprobante de transferencia",
+        }
+
 
 
 # -------------------------------------------------
