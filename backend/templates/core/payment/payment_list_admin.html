@@ -15,25 +15,25 @@
     {% endif %}
 
     {# TODOS los usuarios que entran aquí pueden iniciar el pago de sus deudas #}
-    <a class="btn" href="{% url 'core:payment_create' %}">
+    <a class="btn btn-outline" href="{% url 'core:payment_create' %}">
       Realizar pago
     </a>
   </p>
 
-  <form method="get">
+  <form method="get" class="mb-3">
     <label for="period">Periodo: [YYYY-MM]</label>
     <input type="text" name="period" id="period" value="{{ request.GET.period }}">
-    <button type="submit">Filtrar</button>
-    <a href="{% url 'core:payment_list_admin' %}">Limpiar</a>
+    <button type="submit" class="btn btn-sm btn-outline">Filtrar</button>
+    <a href="{% url 'core:payment_list_admin' %}" class="btn btn-sm btn-light">Limpiar</a>
   </form>
 
   <ul>
     {% for p in object_list %}
-      <li>
+      <li style="margin-bottom:1rem;">
         {# Usuario y rol principal #}
         {% with user_obj=p.resident %}
           {% with first_group=user_obj.groups.first %}
-            {{ user_obj.username }}
+            <strong>{{ user_obj.username }}</strong>
             {% if first_group %}
               ({{ first_group.name }})
             {% else %}
@@ -42,7 +42,7 @@
           {% endwith %}
         {% endwith %}
 
-        —
+        — 
         {# Detalle según origen #}
         {% if p.origin == "reservation" and p.reservation %}
           [Reserva] #{{ p.reservation.id }}
@@ -54,28 +54,58 @@
           [Pago]
         {% endif %}
 
-        — ${{ p.amount }} — {{ p.get_status_display }}
+        — ${{ p.amount }} —
+        {{ p.get_status_display }}
 
         {% if p.paid_at %}
           — Pagado {{ p.paid_at|date:"Y-m-d H:i" }}
         {% endif %}
 
-        {# Solo quien tenga permisos de edición ve los botones de edición/borrado #}
-        {% if perms.core.change_payment %}
-          — <a href="{% url 'core:payment_update_admin' p.pk %}">Editar</a>
-        {% endif %}
+        {# Info de comprobante para tesorero/presidente #}
+        <div style="margin-top:.25rem; font-size:.85rem;">
+          {% if p.receipt_file %}
+            Comprobante:
+            <a href="{{ p.receipt_file.url }}" target="_blank" rel="noopener">
+              Ver comprobante
+            </a>
+            {% if p.receipt_uploaded_at %}
+              (subido {{ p.receipt_uploaded_at|date:"d/m/Y H:i" }})
+            {% endif %}
+          {% else %}
+            {% if p.status == "pending" %}
+              Sin comprobante cargado.
+            {% endif %}
+          {% endif %}
 
-        {% if perms.core.delete_payment %}
-          — <form method="post"
-                 action="{% url 'core:payment_delete_admin' p.pk %}"
-                 style="display:inline;">
+          {% if p.receipt_note %}
+            <br>
+            <em>Nota vecino:</em> {{ p.receipt_note }}
+          {% endif %}
+
+          {% if p.staff_note %}
+            <br>
+            <em>Nota interna:</em> {{ p.staff_note }}
+          {% endif %}
+        </div>
+
+        {# Solo quien tenga permisos de edición ve los botones de edición/borrado #}
+        <div style="margin-top:.25rem;">
+          {% if perms.core.change_payment %}
+            — <a href="{% url 'core:payment_update_admin' p.pk %}">Revisar pago</a>
+          {% endif %}
+
+          {% if perms.core.delete_payment %}
+            <form method="post"
+                   action="{% url 'core:payment_delete_admin' p.pk %}"
+                   style="display:inline;">
               {% csrf_token %}
               <button type="submit"
                       onclick="return confirm('¿Seguro que deseas borrar este pago?');">
                 Borrar
               </button>
             </form>
-        {% endif %}
+          {% endif %}
+        </div>
       </li>
     {% empty %}
       <li>No hay pagos registrados para este período.</li>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Subir comprobante de pago{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width:520px; margin:2rem auto;">
+  <h1 style="margin-bottom:.5rem;">Subir comprobante de pago</h1>
+  <p style="color:#6b7280; font-size:.9rem; margin-bottom:1rem;">
+    Adjunta el comprobante de la transferencia para que el tesorero pueda revisar tu pago.
+  </p>
+
+  <form method="post" enctype="multipart/form-data" class="grid" style="gap:1rem;">
+    {% csrf_token %}
+
+    <div>
+      <label for="{{ form.receipt_file.id_for_label }}" style="display:block; margin-bottom:.25rem; font-weight:600;">
+        {{ form.receipt_file.label }}
+      </label>
+      {{ form.receipt_file }}
+      {% if form.receipt_file.help_text %}
+        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
+          {{ form.receipt_file.help_text }}
+        </p>
+      {% endif %}
+      {% if form.receipt_file.errors %}
+        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
+          {{ form.receipt_file.errors }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <label for="{{ form.receipt_note.id_for_label }}" style="display:block; margin-bottom:.25rem; font-weight:600;">
+        {{ form.receipt_note.label }}
+      </label>
+      {{ form.receipt_note }}
+      {% if form.receipt_note.errors %}
+        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
+          {{ form.receipt_note.errors }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div style="display:flex; gap:.5rem; margin-top:.5rem;">
+      <button type="submit" class="btn btn-primary">Enviar</button>
+      <a href="{% url 'core:my_payments' %}" class="btn btn-outline">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

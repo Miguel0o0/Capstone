@@ -147,20 +147,22 @@ class Fee(models.Model):
 
 
 class Payment(models.Model):
-    # Estados
-    STATUS_PENDING = "pending"
-    STATUS_PAID = "paid"
-    STATUS_CANCELLED = "cancelled"
+    # --------- Estados ----------
+    STATUS_PENDING = "pending"                # deuda creada, sin comprobante
+    STATUS_PENDING_REVIEW = "pending_review"  # vecino subió comprobante, tesorero debe revisar
+    STATUS_PAID = "paid"                      # pago aceptado
+    STATUS_CANCELLED = "cancelled"            # pago anulado (p.ej. reserva cancelada)
 
     STATUS_CHOICES = (
         (STATUS_PENDING, "Pendiente"),
+        (STATUS_PENDING_REVIEW, "Pendiente de revisión"),
         (STATUS_PAID, "Pagado"),
         (STATUS_CANCELLED, "Cancelado"),
     )
 
-    # Origen del pago
-    ORIGIN_FEE = "fee"  # cuota normal
-    ORIGIN_RESERVATION = "reservation"  # deuda por reserva de recurso
+    # --------- Origen ----------
+    ORIGIN_FEE = "fee"                  # cuota normal
+    ORIGIN_RESERVATION = "reservation"  # deuda por reserva
 
     ORIGIN_CHOICES = (
         (ORIGIN_FEE, "Cuota"),
@@ -211,9 +213,43 @@ class Payment(models.Model):
         "Origen",
         max_length=20,
         choices=ORIGIN_CHOICES,
-        default=ORIGIN_RESERVATION,  # o FEE si prefieres
+        default=ORIGIN_RESERVATION,
     )
 
+    # --------- Comprobante (vecino) ----------
+    receipt_file = models.FileField(
+        "Comprobante",
+        upload_to="payment_receipts/",
+        null=True,
+        blank=True,
+    )
+    receipt_uploaded_at = models.DateTimeField(
+        "Comprobante subido en",
+        null=True,
+        blank=True,
+    )
+
+    # --------- Revisión (tesorero/presidente) ----------
+    review_comment = models.TextField(
+        "Comentario para el vecino",
+        null=True,
+        blank=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="payments_reviewed",
+        verbose_name="Revisado por",
+    )
+    reviewed_at = models.DateTimeField(
+        "Revisado en",
+        null=True,
+        blank=True,
+    )
+
+    # --------- Fechas ---------
     paid_at = models.DateTimeField(
         "Fecha de pago",
         null=True,
@@ -228,11 +264,9 @@ class Payment(models.Model):
     class Meta:
         verbose_name = "Pago"
         verbose_name_plural = "Pagos"
-        # Evita pagar 2 veces la misma cuota para el mismo residente
         constraints = [
             models.UniqueConstraint(
                 fields=["resident", "fee", "origin"],
-                # OJO: aquí usamos el string literal, no ORIGIN_FEE
                 condition=Q(origin="fee"),
                 name="unique_fee_payment_per_resident",
             )
@@ -245,7 +279,6 @@ class Payment(models.Model):
     def create_for_reservation(cls, reservation, amount=None):
         """
         Crea un Payment PENDING asociado a una reserva.
-        Si no se pasa amount, usa el precio_por_hora del recurso.
         """
         resource = reservation.resource
         if not resource or not resource.requiere_pago():
@@ -270,7 +303,6 @@ class Payment(models.Model):
         if self.origin == self.ORIGIN_FEE and self.fee:
             return f"{self.resident} → {self.fee} ({base_status})"
         return f"{self.resident} → {self.amount} ({base_status})"
-
 
 # -----------------------------
 # Documentos (version completa)

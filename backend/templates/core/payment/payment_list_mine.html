@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% load auth_extras %}
 
+{% block title %}Mis pagos{% endblock %}
+
 {% block content %}
   <h1>
     {% if user|has_group:"Delegado" %}
@@ -10,10 +12,9 @@
     {% endif %}
   </h1>
 
-  {# El Delegado no debe poder crear pagos #}
-  {% if not user|has_group:"Delegado" %}
-    <p><a href="{% url 'core:payment_create' %}">Realiza pago</a></p>
-  {% endif %}
+  <p class="text-muted">
+    Cuando tengas un pago pendiente, puedes subir el comprobante de transferencia para que el tesorero lo revise.
+  </p>
 
   <ul>
     {% for p in payments %}
@@ -23,15 +24,28 @@
           Reserva de {{ p.reservation.resource.nombre }}
           ({{ p.reservation.start_at|date:"d/m/Y H:i" }})
         {% elif p.origin == "fee" and p.fee %}
-          {{ p.fee.period }}
+          Cuota {{ p.fee.period }}
         {% else %}
           Pago
         {% endif %}
 
-        - ${{ p.amount }} - {{ p.get_status_display }}
+        — ${{ p.amount }} — {{ p.get_status_display }}
 
-        {% if p.paid_at %}
-          ({{ p.paid_at|date:"Y-m-d H:i" }})
+        {# Solo tiene sentido subir comprobante si está PENDIENTE #}
+        {% if p.status == "pending" %}
+          {% if p.receipt_file %}
+            — Comprobante subido {{ p.receipt_uploaded_at|date:"d/m/Y H:i" }}
+            <a href="{{ p.receipt_file.url }}"
+               target="_blank" rel="noopener"
+               class="btn btn-sm btn-outline">
+              Ver comprobante
+            </a>
+          {% else %}
+            <a href="{% url 'core:payment_receipt_upload' p.pk %}"
+               class="btn btn-sm btn-outline">
+              Subir comprobante
+            </a>
+          {% endif %}
         {% endif %}
       </li>
     {% empty %}

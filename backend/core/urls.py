@@ -9,6 +9,8 @@ from .views import (
     InscriptionCreateView,
     InscriptionEvidenceListAdminView,
     InscriptionEvidenceManageView,
+    PaymentReceiptUploadView,
+    PaymentReviewView
 )
 
 app_name = "core"
@@ -89,18 +91,23 @@ urlpatterns = [
     ),
     path(
         "pagos/nuevo/",
-        views.PaymentCreateForResidentView.as_view(),
+        views.MyPaymentsForStaffView.as_view(),
         name="payment_create",
     ),
     path(
         "pagos/<int:pk>/editar/",
-        views.PaymentUpdateAdminView.as_view(),
+        views.PaymentReviewAdminView.as_view(),
         name="payment_update_admin",
     ),
     path(
         "pagos/<int:pk>/eliminar/",
         views.PaymentDeleteAdminView.as_view(),
         name="payment_delete_admin",
+    ),
+        path(
+        "pagos/<int:pk>/comprobante/",
+        views.PaymentReceiptUploadView.as_view(),
+        name="payment_receipt_upload",
     ),
     # -----------------------------
     # 👑 Presidente: Gestión de vecinos
@@ -217,4 +224,18 @@ urlpatterns = [
         InscriptionEvidenceManageView.as_view(),
         name="insc_manage",
     ),
+        # Vecino sube comprobante
+    path(
+        "pagos/<int:pk>/subir-comprobante/",
+        PaymentReceiptUploadView.as_view(),
+        name="payment_upload_receipt",
+    ),
+
+    # Tesorero / Presidente revisa pago
+    path(
+        "pagos/admin/<int:pk>/revisar/",
+        PaymentReviewView.as_view(),
+        name="payment_review",
+    ),
 ]
+
