@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Certificado de residencia</h1>
-<p>Completa tus datos y te generaremos el certificado. Opcionalmente te lo enviamos al correo.</p>
+<p>
+  Completa tus datos y te mostraremos una vista previa del certificado.
+  Desde allí podrás descargar el PDF o enviarlo a tu correo.
+</p>
 <form method="post" class="card">
   {% csrf_token %}
   {{ form.as_p }}

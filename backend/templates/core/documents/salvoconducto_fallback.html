@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Salvoconducto de mudanza</h2>
+
+<p><strong>Nombre:</strong> {{ data.nombre }}</p>
+<p><strong>RUT:</strong> {{ data.rut }}</p>
+<p><strong>Comuna:</strong> {{ data.comuna }}</p>
+
+<p><strong>Domicilio de origen:</strong> {{ data.domicilio_origen }}</p>
+<p><strong>Domicilio de destino:</strong> {{ data.domicilio_destino }}</p>
+<p><strong>Fecha de mudanza:</strong> {{ data.fecha_mudanza }}</p>
+
+<p>
+  La Junta de Vecinos certifica que el vecino indicado pertenece a esta
+  comunidad y que se emite el presente salvoconducto para efectos de
+  traslado de domicilio.
+</p>
+
+<p>Emitido el {{ now|date:"d/m/Y H:i" }}</p>
+
+<p><em>Puedes imprimir esta página como PDF desde tu navegador.</em></p>
+
+<a class="btn" href="{% url 'core:documents-list' %}">Volver</a>
+{% endblock %}

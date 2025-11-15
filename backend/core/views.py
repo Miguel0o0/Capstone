@@ -2,6 +2,9 @@
 import os
 from io import BytesIO
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_exempt
+
 from django import forms
 from django.conf import settings
 from django.contrib import messages
@@ -305,10 +308,14 @@ class AnnouncementCreateView(
     template_name = "core/announcement/announcement_form.html"
     success_url = reverse_lazy("core:announcement_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         form.instance.creado_por = self.request.user
         return super().form_valid(form)
-
 
 class AnnouncementUpdateView(
     LoginRequiredMixin, IsAnnouncementManagerMixin, UpdateView
@@ -318,6 +325,10 @@ class AnnouncementUpdateView(
     template_name = "core/announcement/announcement_form.html"
     success_url = reverse_lazy("core:announcement_list")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
 class AnnouncementDeleteView(
     LoginRequiredMixin, IsAnnouncementManagerMixin, DeleteView
@@ -907,7 +918,6 @@ class DocumentDeleteView(
         u = self.request.user
         return u.is_authenticated and u.has_perm("core.delete_document")
 
-
 # ---------------------------
 # Certificado de residencia
 # ---------------------------
@@ -917,20 +927,111 @@ class CertificateResidenceForm(forms.Form):
     direccion = forms.CharField(label="Dirección", max_length=180)
     comuna = forms.CharField(label="Comuna", max_length=80)
     motivo = forms.CharField(label="Motivo", max_length=120, required=False)
-    enviar_email = forms.BooleanField(label="Enviar a mi correo", required=False)
+
+
+def build_certificate_residence_pdf(data):
+    """
+    Genera el PDF del certificado de residencia y devuelve los bytes.
+    data es un dict con nombre, rut, direccion, comuna, motivo.
+    """
+    if not REPORTLAB_AVAILABLE:
+        return None
+
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # Título interno del PDF (lo que se ve en el visor del navegador)
+    c.setTitle("Certificado de Residencia - Junta UT")
+
+    # Encabezado
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width / 2, height - 60, "JUNTA DE VECINOS UT")
+
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(width / 2, height - 90, "CERTIFICADO DE RESIDENCIA")
+
+    # Comenzamos el texto del cuerpo un poco más abajo
+    text_obj = c.beginText()
+    text_obj.setTextOrigin(70, height - 140)
+    text_obj.setFont("Helvetica", 12)
+
+    # Datos del vecino, ordenados
+    text_obj.textLine("La Directiva de la Junta de Vecinos UT certifica que:")
+
+    text_obj.moveCursor(0, 15)  # Espacio
+
+    text_obj.textLine(f"  Nombre Completo : {data['nombre']}")
+    text_obj.textLine(f"  Rut             : {data['rut']}")
+    text_obj.textLine(f"  Domicilio       : {data['direccion']}")
+    text_obj.textLine(f"  Comuna          : {data['comuna']}")
+
+    text_obj.moveCursor(0, 20)
+
+    # Párrafo de residencia
+    text_obj.textLine(
+        "Que, según los antecedentes registrados en esta Junta de Vecinos,"
+    )
+    text_obj.textLine(
+        "la persona individualizada precedentemente reside de forma permanente"
+    )
+    text_obj.textLine(
+        "en el domicilio indicado, dentro del territorio jurisdiccional de la Junta."
+    )
+
+    text_obj.moveCursor(0, 20)
+
+    # Motivo (si existe)
+    if data.get("motivo"):
+        text_obj.textLine(
+            f"El presente certificado se extiende a petición del interesado para:"
+        )
+        text_obj.textLine(f"  {data['motivo']}.")
+    else:
+        text_obj.textLine(
+            "El presente certificado se extiende a petición del interesado,"
+        )
+        text_obj.textLine(
+            "para los fines que estime convenientes."
+        )
+
+    text_obj.moveCursor(0, 25)
+
+    # Fecha de emisión
+    fecha_str = now().strftime("%d/%m/%Y")
+    text_obj.textLine(
+        f"Se firma en la comuna de {data['comuna']}, a {fecha_str}."
+    )
+
+    text_obj.moveCursor(0, 50)
+
+    # Espacio para firma
+    text_obj.textLine("______________________________")
+    text_obj.textLine("Presidente Junta de Vecinos UT")
+
+    c.drawText(text_obj)
+    c.showPage()
+    c.save()
+
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes
+
 
 
 class CertificateResidenceView(NavItemsMixin, LoginRequiredMixin, View):
+    """
+    Paso 1: mostrar formulario y guardar datos en sesión.
+    """
     template_name = "core/documents/cert_residence_form.html"
 
     def get(self, request):
-        form = CertificateResidenceForm(
-            initial={
-                "nombre": getattr(request.user, "first_name", "")
-                + " "
-                + getattr(request.user, "last_name", ""),
-            }
-        )
+        full_name = f"{getattr(request.user, 'first_name', '')} {getattr(request.user, 'last_name', '')}".strip()
+        initial = {}
+        if full_name:
+            initial["nombre"] = full_name
+
+        form = CertificateResidenceForm(initial=initial)
         return render(request, self.template_name, {"form": form})
 
     def post(self, request):
@@ -940,75 +1041,431 @@ class CertificateResidenceView(NavItemsMixin, LoginRequiredMixin, View):
 
         data = form.cleaned_data
 
-        # 1) Generar PDF simple (ReportLab) o fallback HTML
-        filename = f"certificado_residencia_{slugify(data['nombre'])}.pdf"
-        pdf_bytes = None
+        # Guardamos los datos en sesión para usarlos en la vista previa / PDF / email
+        request.session["cert_res_data"] = data
 
-        if REPORTLAB_AVAILABLE:
-            buffer = BytesIO()
-            c = canvas.Canvas(buffer, pagesize=A4)
-            text = c.beginText(60, 790)
-            text.setFont("Helvetica", 12)
-            lines = [
-                "CERTIFICADO DE RESIDENCIA",
-                "",
-                f"Nombre        : {data['nombre']}",
-                f"RUT           : {data['rut']}",
-                f"Dirección     : {data['direccion']}, {data['comuna']}",
-                f"Motivo        : {data.get('motivo') or 'No especificado'}",
-                "",
-                "La Junta de Vecinos certifica que los datos anteriores corresponden a",
-                "un vecino inscrito y con domicilio dentro de la jurisdicción.",
-                "",
-                f"Emitido el {now().strftime('%d/%m/%Y %H:%M')}.",
-            ]
-            for ln in lines:
-                text.textLine(ln)
-            c.drawText(text)
-            c.showPage()
-            c.save()
-            pdf_bytes = buffer.getvalue()
-            buffer.close()
+        return redirect("core:cert_residence_preview")
 
-        # 2) Enviar por email si lo pidió
-        if data.get("enviar_email") and getattr(request.user, "email", None):
-            try:
-                email = EmailMessage(
-                    subject="Certificado de residencia",
-                    body="Adjuntamos su certificado de residencia.",
-                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                    to=[request.user.email],
-                )
-                if pdf_bytes:
-                    email.attach(filename, pdf_bytes, "application/pdf")
-                else:
-                    # Fallback con HTML si no hay reportlab
-                    html_body = render_to_string(
-                        "core/documents/cert_residence_email.html", {"data": data}
-                    )
-                    email.content_subtype = "html"
-                    email.body = html_body
-                email.send(fail_silently=True)
-                messages.success(request, "Enviamos el certificado a tu correo.")
-            except Exception:
-                messages.warning(
-                    request,
-                    "No se pudo enviar el email. Descárgalo desde el navegador.",
-                )
 
-        # 3) Descargar en el navegador
-        if pdf_bytes:
-            return FileResponse(
-                BytesIO(pdf_bytes), as_attachment=True, filename=filename
-            )
-        else:
-            # Fallback: mostrar HTML (el usuario puede imprimir a PDF)
-            html = render_to_string(
-                "core/documents/cert_residence_fallback.html", {"data": data}
-            )
+class CertificateResidencePreviewView(NavItemsMixin, LoginRequiredMixin, View):
+    """
+    Paso 2: mostrar vista previa con iframe + botones.
+    """
+    template_name = "core/documents/cert_residence_preview.html"
+
+    def get(self, request):
+        data = request.session.get("cert_res_data")
+        if not data:
+            messages.warning(request, "Primero debes completar el formulario del certificado.")
+            return redirect("core:cert_residence")
+
+        return render(request, self.template_name, {"data": data})
+
+@method_decorator(xframe_options_exempt, name="dispatch")
+class CertificateResidencePdfView(LoginRequiredMixin, View):
+    """
+    Devuelve el PDF para el iframe (inline).
+    """
+    def get(self, request):
+        data = request.session.get("cert_res_data")
+        if not data:
+            raise Http404("No hay datos de certificado en la sesión.")
+
+        pdf_bytes = build_certificate_residence_pdf(data)
+        if not pdf_bytes:
+            # Si no hay reportlab, devolvemos el HTML fallback dentro del iframe
             return render(
-                request, "core/documents/cert_residence_fallback.html", {"data": data}
+                request,
+                "core/documents/cert_residence_fallback.html",
+                {"data": data},
             )
+
+        return FileResponse(
+            BytesIO(pdf_bytes),
+            as_attachment=False,
+            filename="certificado_residencia.pdf",
+            content_type="application/pdf",
+        )
+
+
+class CertificateResidenceDownloadView(LoginRequiredMixin, View):
+    """
+    Botón 'Descargar PDF'.
+    """
+    def get(self, request):
+        data = request.session.get("cert_res_data")
+        if not data:
+            messages.warning(request, "Primero debes generar el certificado.")
+            return redirect("core:cert_residence")
+
+        pdf_bytes = build_certificate_residence_pdf(data)
+        if not pdf_bytes:
+            messages.warning(
+                request,
+                "No se pudo generar el PDF en este momento.",
+            )
+            return redirect("core:cert_residence_preview")
+
+        return FileResponse(
+            BytesIO(pdf_bytes),
+            as_attachment=True,
+            filename="certificado_residencia.pdf",
+            content_type="application/pdf",
+        )
+
+
+class CertificateResidenceSendEmailView(LoginRequiredMixin, View):
+    def get(self, request):
+        data = request.session.get("cert_res_data")
+        if not data:
+            messages.warning(request, "Primero debes generar el certificado.")
+            return redirect("core:cert_residence")
+
+        if not getattr(request.user, "email", None):
+            messages.warning(request, "Tu usuario no tiene un correo configurado.")
+            return redirect("core:cert_residence_preview")
+
+        pdf_bytes = build_certificate_residence_pdf(data)
+        if not pdf_bytes:
+            messages.warning(
+                request,
+                "No se pudo generar el PDF para enviarlo por correo.",
+            )
+            return redirect("core:cert_residence_preview")
+
+        # Nombre para el saludo
+        nombre_saludo = (
+            request.user.first_name
+            or data.get("nombre")
+            or request.user.username
+        )
+
+        # Cuerpo del correo (texto plano)
+        cuerpo = (
+            f"Estimado/a {nombre_saludo},\n\n"
+            "Adjuntamos en este correo su Certificado de Residencia emitido por la Junta "
+            "de Vecinos UT.\n\n"
+            "Este documento acredita que usted reside en el siguiente domicilio:\n"
+            f" - Dirección: {data.get('direccion')}\n"
+            f" - Comuna   : {data.get('comuna')}\n\n"
+            "Le recordamos que este certificado ha sido generado en base a los datos "
+            "entregados por usted a través de la plataforma de la Junta.\n"
+            "En caso de detectar algún error, por favor póngase en contacto con la "
+            "directiva para solicitar la corrección correspondiente.\n\n"
+            "Atentamente,\n"
+            "Junta de Vecinos UT\n"
+        )
+
+        try:
+            email = EmailMessage(
+                subject="Certificado de residencia",
+                body=cuerpo,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[request.user.email],
+            )
+            email.attach(
+                "certificado_residencia.pdf",
+                pdf_bytes,
+                "application/pdf",
+            )
+            email.send(fail_silently=False)
+            messages.success(request, "Enviamos el certificado a tu correo.")
+        except Exception as e:
+            print("ERROR enviando certificado:", e)
+            messages.warning(
+                request,
+                "Hubo un problema al enviar el correo con el certificado.",
+            )
+
+        return redirect("core:cert_residence_preview")
+
+
+
+# ---------------------------
+# Salvoconducto de mudanza
+# ---------------------------
+class SalvoconductoForm(forms.Form):
+    nombre = forms.CharField(label="Nombre completo", max_length=120)
+    rut = forms.CharField(label="RUT", max_length=20)
+    domicilio_origen = forms.CharField(
+        label="Domicilio de origen", max_length=200
+    )
+    domicilio_destino = forms.CharField(
+        label="Domicilio de destino", max_length=200
+    )
+    comuna = forms.CharField(label="Comuna", max_length=80)
+    fecha_mudanza = forms.DateField(
+        label="Fecha de mudanza",
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+
+def build_salvoconducto_pdf(data):
+    """
+    Genera el PDF del salvoconducto de mudanza y devuelve los bytes.
+    data viene desde sesión, así que fecha_mudanza puede ser date o string ISO.
+    """
+    if not REPORTLAB_AVAILABLE:
+        return None
+
+    # Normalizar fecha de mudanza
+    fecha_raw = data.get("fecha_mudanza")
+    if hasattr(fecha_raw, "strftime"):
+        # Es un objeto date
+        fecha_mudanza = fecha_raw
+    else:
+        # Suponemos string "YYYY-MM-DD"
+        from datetime import date
+        try:
+            año, mes, dia = map(int, str(fecha_raw).split("-"))
+            fecha_mudanza = date(año, mes, dia)
+        except Exception:
+            fecha_mudanza = None
+
+    fecha_mudanza_str = (
+        fecha_mudanza.strftime("%d/%m/%Y") if fecha_mudanza else str(fecha_raw)
+    )
+    fecha_emision_str = now().strftime("%d/%m/%Y")
+
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # Título del documento (visor del navegador)
+    c.setTitle("Salvoconducto de Mudanza - Junta UT")
+
+    # Encabezado
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width / 2, height - 60, "JUNTA DE VECINOS UT")
+
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(width / 2, height - 90, "SALVOCONDUCTO DE MUDANZA")
+
+    # Cuerpo del texto
+    text = c.beginText()
+    text.setTextOrigin(70, height - 140)
+    text.setFont("Helvetica", 12)
+
+    # Intro
+    text.textLine("La Directiva de la Junta de Vecinos UT hace constar que:")
+    text.moveCursor(0, 15)
+
+    # Datos del vecino ordenados
+    text.textLine(f"  Nombre Completo   : {data['nombre']}")
+    text.textLine(f"  Rut                           : {data['rut']}")
+    text.textLine(f"  Comuna           : {data['comuna']}")
+    text.moveCursor(0, 15)
+
+    # Domicilios y fecha de mudanza
+    text.textLine("Que la persona individualizada precedentemente ha informado su traslado")
+    text.textLine("de domicilio, en los siguientes términos:")
+    text.moveCursor(0, 15)
+    text.textLine(f"  Domicilio Origen    : {data['domicilio_origen']}")
+    text.textLine(f"  Domicilio Destino   : {data['domicilio_destino']}")
+    text.textLine(f"  Fecha Mudanza       : {fecha_mudanza_str}")
+
+    text.moveCursor(0, 20)
+
+    # Párrafo legal
+    text.textLine(
+        "El presente salvoconducto se emite para los fines de control y traslado,"
+    )
+    text.textLine(
+        "y podrá ser presentado ante la autoridad competente cuando así se requiera."
+    )
+
+    text.moveCursor(0, 25)
+
+    # Cierre con fecha y firma
+    text.textLine(
+        f"Se firma en la comuna de {data['comuna']}, a {fecha_emision_str}."
+    )
+    text.moveCursor(0, 50)
+    text.textLine("______________________________")
+    text.textLine("Presidente Junta de Vecinos UT")
+
+    c.drawText(text)
+    c.showPage()
+    c.save()
+
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+    return pdf_bytes
+
+class SalvoconductoView(NavItemsMixin, LoginRequiredMixin, View):
+    """
+    Paso 1: formulario de salvoconducto.
+    """
+    template_name = "core/documents/salvoconducto_form.html"
+
+    def get(self, request):
+        full_name = f"{getattr(request.user, 'first_name', '')} {getattr(request.user, 'last_name', '')}".strip()
+        initial = {}
+        if full_name:
+            initial["nombre"] = full_name
+        form = SalvoconductoForm(initial=initial)
+        return render(request, self.template_name, {"form": form})
+
+    def post(self, request):
+        form = SalvoconductoForm(request.POST)
+        if not form.is_valid():
+            return render(request, self.template_name, {"form": form})
+
+        data = form.cleaned_data
+
+        # Hacemos una copia para no modificar cleaned_data original
+        data = data.copy()
+        # Convertimos la fecha a string ISO (JSON serializable)
+        if data.get("fecha_mudanza"):
+            data["fecha_mudanza"] = data["fecha_mudanza"].isoformat()
+
+        request.session["salvoconducto_data"] = data
+        return redirect("core:cert_salvoconducto_preview")
+
+
+
+class SalvoconductoPreviewView(NavItemsMixin, LoginRequiredMixin, View):
+    """
+    Paso 2: vista previa con iframe + botones.
+    """
+    template_name = "core/documents/salvoconducto_preview.html"
+
+    def get(self, request):
+        data = request.session.get("salvoconducto_data")
+        if not data:
+            messages.warning(request, "Primero debes completar el formulario del salvoconducto.")
+            return redirect("core:cert_salvoconducto")
+        return render(request, self.template_name, {"data": data})
+
+
+@method_decorator(xframe_options_exempt, name="dispatch")
+class SalvoconductoPdfView(LoginRequiredMixin, View):
+    """
+    Devuelve el PDF para el iframe (inline).
+    """
+    def get(self, request):
+        data = request.session.get("salvoconducto_data")
+        if not data:
+            raise Http404("No hay datos de salvoconducto en la sesión.")
+
+        pdf_bytes = build_salvoconducto_pdf(data)
+        if not pdf_bytes:
+            return render(
+                request,
+                "core/documents/salvoconducto_fallback.html",
+                {"data": data},
+            )
+
+        return FileResponse(
+            BytesIO(pdf_bytes),
+            as_attachment=False,
+            filename="salvoconducto_mudanza.pdf",
+            content_type="application/pdf",
+        )
+
+
+class SalvoconductoDownloadView(LoginRequiredMixin, View):
+    """
+    Botón 'Descargar PDF'.
+    """
+    def get(self, request):
+        data = request.session.get("salvoconducto_data")
+        if not data:
+            messages.warning(request, "Primero debes generar el salvoconducto.")
+            return redirect("core:cert_salvoconducto")
+
+        pdf_bytes = build_salvoconducto_pdf(data)
+        if not pdf_bytes:
+            messages.warning(
+                request,
+                "No se pudo generar el PDF en este momento.",
+            )
+            return redirect("core:cert_salvoconducto_preview")
+
+        return FileResponse(
+            BytesIO(pdf_bytes),
+            as_attachment=True,
+            filename="salvoconducto_mudanza.pdf",
+            content_type="application/pdf",
+        )
+
+
+class SalvoconductoSendEmailView(LoginRequiredMixin, View):
+    def get(self, request):
+        data = request.session.get("salvoconducto_data")
+        if not data:
+            messages.warning(request, "Primero debes generar el salvoconducto.")
+            return redirect("core:cert_salvoconducto")
+
+        if not getattr(request.user, "email", None):
+            messages.warning(request, "Tu usuario no tiene un correo configurado.")
+            return redirect("core:cert_salvoconducto_preview")
+
+        pdf_bytes = build_salvoconducto_pdf(data)
+        if not pdf_bytes:
+            messages.warning(
+                request,
+                "No se pudo generar el PDF para enviarlo por correo.",
+            )
+            return redirect("core:cert_salvoconducto_preview")
+
+        # Nombre para el saludo
+        nombre_saludo = (
+            request.user.first_name
+            or data.get("nombre")
+            or request.user.username
+        )
+
+        # Formatear fecha de mudanza (puede venir como string "YYYY-MM-DD")
+        fecha_raw = data.get("fecha_mudanza")
+        fecha_mudanza_str = str(fecha_raw)
+        try:
+            from datetime import date
+            año, mes, dia = map(int, str(fecha_raw).split("-"))
+            fecha_mudanza_str = date(año, mes, dia).strftime("%d/%m/%Y")
+        except Exception:
+            pass
+
+        cuerpo = (
+            f"Estimado/a {nombre_saludo},\n\n"
+            "Adjuntamos en este correo su Salvoconducto de Mudanza emitido por la "
+            "Junta de Vecinos UT.\n\n"
+            "Resumen de los datos registrados:\n"
+            f" - Nombre completo    : {data.get('nombre')}\n"
+            f" - RUT                : {data.get('rut')}\n"
+            f" - Domicilio de origen: {data.get('domicilio_origen')}\n"
+            f" - Domicilio de destino: {data.get('domicilio_destino')}\n"
+            f" - Fecha de mudanza   : {fecha_mudanza_str}\n\n"
+            "Este salvoconducto se emite para fines de control y traslado, y puede "
+            "ser presentado ante la autoridad competente cuando sea requerido.\n\n"
+            "Le recomendamos revisar que la información indicada sea correcta antes "
+            "de utilizar el documento.\n\n"
+            "Atentamente,\n"
+            "Junta de Vecinos UT\n"
+        )
+
+        try:
+            email = EmailMessage(
+                subject="Salvoconducto de mudanza",
+                body=cuerpo,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[request.user.email],
+            )
+            email.attach(
+                "salvoconducto_mudanza.pdf",
+                pdf_bytes,
+                "application/pdf",
+            )
+            email.send(fail_silently=False)
+            messages.success(request, "Enviamos el salvoconducto a tu correo.")
+        except Exception as e:
+            print("ERROR enviando salvoconducto:", e)
+            messages.warning(
+                request,
+                "Hubo un problema al enviar el correo con el salvoconducto.",
+            )
+
+        return redirect("core:cert_salvoconducto_preview")
+
 
 
 # ------------------------------------------------

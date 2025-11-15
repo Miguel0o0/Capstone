@@ -1,11 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Certificado de residencia</h2>
+
 <p><strong>Nombre:</strong> {{ data.nombre }}</p>
 <p><strong>RUT:</strong> {{ data.rut }}</p>
 <p><strong>Dirección:</strong> {{ data.direccion }}, {{ data.comuna }}</p>
 <p><strong>Motivo:</strong> {{ data.motivo|default:"No especificado" }}</p>
+
 <p>Emitido el {{ now|date:"d/m/Y H:i" }}</p>
+
 <p><em>Puedes imprimir esta página como PDF.</em></p>
+
 <a class="btn" href="{% url 'core:documents-list' %}">Volver</a>
 {% endblock %}
