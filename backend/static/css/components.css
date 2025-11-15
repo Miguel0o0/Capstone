@@ -109,3 +109,12 @@
   }
 }
 
+.badge-important {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: #dc2626; /* rojo */
+  color: #fff;
+}

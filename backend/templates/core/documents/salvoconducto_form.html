@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Salvoconducto de mudanza</h1>
+
+<p>
+  Completa los datos de tu mudanza y te mostraremos una vista previa del
+  salvoconducto. Desde ahí podrás descargar el PDF o enviarlo a tu correo.
+</p>
+
+<form method="post" class="card">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button class="btn btn-primary" type="submit">Generar salvoconducto</button>
+  <a class="btn" href="{% url 'core:documents-list' %}">Volver</a>
+</form>
+{% endblock %}

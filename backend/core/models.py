@@ -63,7 +63,6 @@ class Household(models.Model):
         # algo legible en admin/listas
         return f"{self.direccion} {self.numero}".strip()
 
-
 class Announcement(models.Model):
     titulo = models.CharField(max_length=200)
     cuerpo = models.TextField()
@@ -77,12 +76,18 @@ class Announcement(models.Model):
     visible_hasta = models.DateField(null=True, blank=True)
     creado_en = models.DateTimeField(auto_now_add=True)
 
+    # NUEVO: flag para destacar avisos
+    importante = models.BooleanField(
+        "Marcar como importante",
+        default=False,
+        help_text="Si está activo, este aviso se destacará para los vecinos.",
+    )
+
     class Meta:
-        ordering = ["-creado_en"]
+        ordering = ["-creado_en"]  # sigue ordenado por fecha de publicación
 
     def __str__(self):
         return self.titulo
-
 
 class Meeting(models.Model):
     fecha = models.DateTimeField()

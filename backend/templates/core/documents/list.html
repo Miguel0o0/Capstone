@@ -1,66 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Documentos</h1>
+<h1>Certificados en línea</h1>
 
-<form method="get" class="mb-3">
-  <input type="text" name="q" value="{{ q }}" placeholder="Buscar..." />
-  <select name="cat">
-    <option value="">Todas las categorías</option>
-    {% for c in categorias %}
-      <option value="{{ c.id }}" {% if cat_selected|default:'' == c.id|stringformat:'s' %}selected{% endif %}>{{ c.nombre }}</option>
-    {% endfor %}
-  </select>
-  <button type="submit">Filtrar</button>
-
-  {# Solo perfiles con permiso pueden subir documentos #}
-  {% if perms.core.add_document %}
-    <a href="{% url 'core:documents-create' %}">Subir documento</a>
-  {% endif %}
-</form>
-
-{# Acceso rápido al certificado de residencia para todos los logueados #}
-<p style="margin-top:.5rem">
-  <a class="btn" href="{% url 'core:cert_residence' %}">Certificado de residencia</a>
+<p>
+  Desde esta sección puedes generar de forma automática certificados
+  usando los datos que tú mismo ingreses.
 </p>
 
-{% if docs %}
-  <ul>
-    {% for d in docs %}
-      <li>
-        <strong>{{ d.titulo }}</strong>
-        {% if d.categoria %}<em> ({{ d.categoria.nombre }})</em>{% endif %}<br/>
+<div class="mt-4">
 
-        {% if d.descripcion %}<small>{{ d.descripcion }}</small><br/>{% endif %}
-        <small>Visibilidad: {{ d.get_visibilidad_display }} · Subido: {{ d.created_at|date:"Y-m-d H:i" }}</small><br/>
-
-        <a href="{% url 'core:documents-download' d.pk %}">Descargar</a>
-
-        {# Botones de gestión, visibles solo para quien tenga permisos #}
-        {% if perms.core.change_document %}
-          · <a href="{% url 'core:documents-edit' d.id %}">Editar</a>
-        {% endif %}
-        {% if perms.core.delete_document %}
-          · <a href="{% url 'core:documents-delete' d.id %}">Borrar</a>
-        {% endif %}
-      </li>
-    {% endfor %}
-  </ul>
-{% else %}
-  {# Sin lista para vecinos; mensaje solo para staff #}
-  {% if request.user.is_staff %}
-    <p><em>No hay documentos.</em></p>
-  {% endif %}
-{% endif %}
-
-{% if is_paginated %}
-  <div style="margin-top:1rem">
-    {% if page_obj.has_previous %}
-      <a href="?page={{ page_obj.previous_page_number }}&q={{ q }}&cat={{ cat_selected }}">Anterior</a>
-    {% endif %}
-    <span> · Página {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} · </span>
-    {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}&q={{ q }}&cat={{ cat_selected }}">Siguiente</a>
-    {% endif %}
+  <!-- Tarjeta: Certificado de residencia -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h4">Certificado de residencia</h2>
+      <p>
+        Documento que acredita tu domicilio dentro de la Junta de Vecinos.
+        Se genera en PDF y se puede enviar a tu correo.
+      </p>
+      <a href="{% url 'core:cert_residence' %}" class="btn btn-primary">
+        Generar certificado de residencia
+      </a>
+    </div>
   </div>
-{% endif %}
+
+  <!-- Tarjeta: Salvoconducto -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h2 class="h4">Salvoconducto</h2>
+      <p>
+        Documento base para tramitar el salvoconducto de mudanza, con tus datos
+        y direcciones de origen/destino.
+      </p>
+      <a href="{% url 'core:cert_salvoconducto' %}" class="btn btn-primary">
+        Generar salvoconducto
+      </a>
+    </div>
+  </div>
+
+</div>
 {% endblock %}

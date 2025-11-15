@@ -23,13 +23,20 @@ _DT_FMT = "%Y-%m-%dT%H:%M"  # para <input type="datetime-local">
 # ANUNCIOS
 # -------------------------------------------------
 class AnnouncementForm(forms.ModelForm):
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Si el usuario no tiene permiso de cambio de avisos,
+        # deshabilitamos el campo "importante".
+        if user is not None and not user.has_perm("core.change_announcement"):
+            self.fields["importante"].disabled = True
+
     class Meta:
         model = Announcement
-        fields = ["titulo", "cuerpo", "visible_hasta"]
+        fields = ["titulo", "cuerpo", "visible_hasta", "importante"]
         widgets = {
             "visible_hasta": forms.DateInput(attrs={"type": "date"}),
         }
-
 
 # -------------------------------------------------
 # REUNIONES

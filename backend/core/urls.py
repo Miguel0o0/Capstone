@@ -155,6 +155,51 @@ urlpatterns = [
         views.CertificateResidenceView.as_view(),
         name="cert_residence",
     ),
+    path(
+        "documentos/certificado-residencia/preview/",
+        views.CertificateResidencePreviewView.as_view(),
+        name="cert_residence_preview",
+    ),
+    path(
+        "documentos/certificado-residencia/pdf/",
+        views.CertificateResidencePdfView.as_view(),
+        name="cert_residence_pdf",
+    ),
+    path(
+        "documentos/certificado-residencia/descargar/",
+        views.CertificateResidenceDownloadView.as_view(),
+        name="cert_residence_download",
+    ),
+    path(
+        "documentos/certificado-residencia/enviar-correo/",
+        views.CertificateResidenceSendEmailView.as_view(),
+        name="cert_residence_send_email",
+    ),
+    path(
+        "documentos/salvoconducto/",
+        views.SalvoconductoView.as_view(),
+        name="cert_salvoconducto",
+    ),
+        path(
+        "documentos/salvoconducto/preview/",
+        views.SalvoconductoPreviewView.as_view(),
+        name="cert_salvoconducto_preview",
+    ),
+    path(
+        "documentos/salvoconducto/pdf/",
+        views.SalvoconductoPdfView.as_view(),
+        name="cert_salvoconducto_pdf",
+    ),
+    path(
+        "documentos/salvoconducto/descargar/",
+        views.SalvoconductoDownloadView.as_view(),
+        name="cert_salvoconducto_download",
+    ),
+    path(
+        "documentos/salvoconducto/enviar-correo/",
+        views.SalvoconductoSendEmailView.as_view(),
+        name="cert_salvoconducto_send_email",
+    ),
     # Incidencias
     path("incidencias/", views.IncidentListPublicView.as_view(), name="incident_list"),
     path(
