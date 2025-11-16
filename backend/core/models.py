@@ -1,15 +1,20 @@
 # backend/core/models.py
 import os
 import uuid
+import secrets
+import string
+
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
+from django.core.mail import EmailMessage
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.text import slugify
+from django.contrib.auth.models import Group
 
 User = get_user_model()
 
@@ -35,6 +40,7 @@ class Resident(models.Model):
     telefono = models.CharField(max_length=30, blank=True)
     direccion = models.CharField(max_length=200, blank=True)
     activo = models.BooleanField(default=True)
+    rut = models.CharField("RUT", max_length=12, blank=True, null=True, unique=True)
 
     class Meta:
         ordering = ["nombre"]  # listado alfabético por nombre
@@ -674,27 +680,36 @@ class InscriptionEvidence(models.Model):
         APPROVED = "APPROVED", "Aprobada"
         REJECTED = "REJECTED", "Rechazada"
 
-    # Boleta subida
+    class DesiredRole(models.TextChoices):
+        NEIGHBOUR = "VECINO", "Vecino"
+        DELEGATE = "DELEGADO", "Delegado"
+        TREASURER = "TESORERO", "Tesorero"
+        SECRETARY = "SECRETARIO", "Secretario"
+        PRESIDENT = "PRESIDENTE", "Presidente"
+
     file = models.FileField(
         upload_to=evidence_upload_to,
         validators=[validate_evidence],
     )
 
-    # 👇 Nuevos campos para ANÓNIMOS
-    applicant_name = models.CharField(
-        "Nombre del solicitante",
-        max_length=150,
+    first_name = models.CharField("Nombre", max_length=100, blank=True, null=True)
+    last_name = models.CharField("Apellido", max_length=100, blank=True, null=True)
+
+    rut = models.CharField(
+        "RUT",
+        max_length=12,
         blank=True,
         null=True,
+        help_text="Ingresa tu RUT con o sin puntos, incluyendo el dígito verificador.",
     )
-    applicant_address = models.CharField(
+
+    address = models.CharField(
         "Dirección",
         max_length=255,
         blank=True,
         null=True,
     )
 
-    # Correo de contacto
     email = models.EmailField(
         "Correo de contacto",
         max_length=254,
@@ -706,13 +721,20 @@ class InscriptionEvidence(models.Model):
         ),
     )
 
+    desired_role = models.CharField(
+        "Rol solicitado",
+        max_length=20,
+        choices=DesiredRole.choices,
+        blank=True,
+        null=True,
+    )
+
     status = models.CharField(
         max_length=10,
         choices=Status.choices,
         default=Status.PENDING,
     )
 
-    # Si el que envía está logueado, lo guardamos aquí
     submitted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
@@ -721,9 +743,8 @@ class InscriptionEvidence(models.Model):
         related_name="insc_submissions",
     )
 
-    # Si se vincula a un Resident concreto
     resident = models.ForeignKey(
-        Resident,
+        "Resident",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -742,50 +763,211 @@ class InscriptionEvidence(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ---------- Helpers ----------
+
+    @property
+    def full_name(self) -> str:
+        fn = self.first_name or ""
+        ln = self.last_name or ""
+        return (fn + " " + ln).strip() or "Solicitante sin nombre"
+
+    def _generate_username(self) -> str:
+        """
+        Genera username tipo nombre.apellido, todo en minúsculas.
+        Si ya existe, agrega un sufijo 2, 3, etc.
+        """
+        # Normalizamos nombre y apellido por separado
+        first = slugify(self.first_name or "vecino").replace("-", "")
+        last = slugify(self.last_name or "").replace("-", "")
+
+        if last:
+            base = f"{first}.{last}"
+        else:
+            base = first
+
+        username = base
+        i = 2
+        while User.objects.filter(username=username).exists():
+            username = f"{base}{i}"
+            i += 1
+        return username
+
+    def _generate_password(self) -> str:
+        """
+        Contraseña simple basada en el nombre + números aleatorios.
+        (Equivale a lo que ya teníamos, pero explícito aquí).
+        """
+        import secrets
+        base = (self.first_name or "vecino").split()[0]
+        base = slugify(base) or "vecino"
+        suffix = secrets.randbelow(9000) + 1000  # 4 dígitos
+        return f"{base.capitalize()}{suffix}!"
+
+    def _create_user_and_resident(self, role_code: str | None):
+        """
+        Crea el User + Resident y los asocia a esta inscripción.
+        Devuelve (user, password_generada).
+
+        role_code viene del formulario de gestión y suele ser:
+        'Vecino', 'Delegado', 'Tesorero', 'Secretario' o 'Presidente'.
+        """
+        username = self._generate_username()
+        password = self._generate_password()
+
+        user = User.objects.create_user(
+            username=username,
+            email=self.email or "",
+            first_name=self.first_name or "",
+            last_name=self.last_name or "",
+            password=password,
+        )
+
+        # Mapear el valor del select a un grupo de Django
+        role_to_group = {
+            "Vecino": "Vecino",
+            "Delegado": "Delegado",
+            "Tesorero": "Tesorero",
+            "Secretario": "Secretario",
+            "Presidente": "Presidente",
+        }
+        group_name = role_to_group.get(role_code)
+
+        if group_name:
+            try:
+                group = Group.objects.get(name=group_name)
+                user.groups.add(group)
+            except Group.DoesNotExist:
+                # Si falta el grupo, simplemente no lo asignamos
+                pass
+
+        # (Opcional) también guardamos el rol interno DesiredRole,
+        # por si quieres usarlo más adelante.
+        desired_map = {
+            "Vecino": self.DesiredRole.NEIGHBOUR,
+            "Delegado": self.DesiredRole.DELEGATE,
+            "Tesorero": self.DesiredRole.TREASURER,
+            "Secretario": self.DesiredRole.SECRETARY,
+            "Presidente": self.DesiredRole.PRESIDENT,
+        }
+        if role_code in desired_map:
+            self.desired_role = desired_map[role_code]
+
+        # Crear Resident enlazado al User
+        resident = Resident.objects.create(
+            nombre=self.full_name,
+            email=self.email or "",
+            direccion=self.address or "",
+            activo=True,
+            user=user,
+            rut=self.rut or None,
+        )
+
+        self.resident = resident
+        self.save(update_fields=["resident", "desired_role"])
+
+        return user, password
+
+
     # ---------- Lógica de aprobación / rechazo ----------
 
-    def approve(self, user, note: str = ""):
+    def approve(self, user, note: str = "", role_code: str | None = None):
+        """
+        Marca la inscripción como APROBADA, crea usuario/residente si hace falta
+        y envía un correo al vecino con sus credenciales.
+        """
         self.status = self.Status.APPROVED
         self.validated_by = user
         self.validated_at = timezone.now()
         self.note = note
 
-        # Avisar por correo si el solicitante lo dejó
+        # Crear user + resident sólo si aún no se han creado
+        created_user = None
+        password = None
+        if not self.resident:
+            created_user, password = self._create_user_and_resident(role_code)
+        self.save()
+
+        # Enviar correo
         if self.email:
-            mensaje = (
-                "Hola,\n\n"
-                "Tu solicitud de inscripción en la Junta de Vecinos ha sido APROBADA.\n"
-                f"Nota: {note or 'Sin comentarios adicionales.'}\n\n"
-                "¡Te damos la bienvenida!\n"
-            )
-            send_mail(
-                subject="Inscripción aprobada – Junta de Vecinos",
-                message=mensaje,
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                recipient_list=[self.email],
-                fail_silently=True,
-            )
+            try:
+                # Rol para mostrar en el correo
+                if role_code:
+                    role_label = role_code
+                elif self.desired_role:
+                    role_label = self.get_desired_role_display()
+                else:
+                    role_label = "Vecino"
+
+                cuerpo = (
+                    f"Hola {self.full_name},\n\n"
+                    "Tu solicitud para unirte a la Junta de Vecinos UT ha sido APROBADA.\n\n"
+                )
+
+                if created_user and password:
+                    cuerpo += (
+                        "Puedes acceder a la plataforma con estas credenciales:\n"
+                        f" - Usuario: {created_user.username}\n"
+                        f" - Contraseña: {password}\n"
+                        f" - Rol asignado: {role_label}\n\n"
+                        "Te recomendamos cambiar la contraseña después del primer ingreso.\n\n"
+                    )
+                else:
+                    cuerpo += (
+                        "Tus datos han sido vinculados a un usuario existente de la plataforma.\n\n"
+                    )
+
+                if note:
+                    cuerpo += f"Nota del equipo: {note}\n\n"
+
+                cuerpo += "Saludos,\nJunta de Vecinos UT\n"
+
+                email = EmailMessage(
+                    subject="Inscripción aprobada – Junta de Vecinos UT",
+                    body=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[self.email],
+                )
+                email.send(fail_silently=False)
+            except Exception as e:
+                print("ERROR enviando correo de inscripción aprobada:", e)
+
 
     def reject(self, user, note: str = ""):
+        """
+        Marca la inscripción como RECHAZADA y envía un correo con el motivo.
+        """
         self.status = self.Status.REJECTED
         self.validated_by = user
         self.validated_at = timezone.now()
         self.note = note
+        self.save()
 
         if self.email:
-            mensaje = (
-                "Hola,\n\n"
-                "Tu solicitud de inscripción en la Junta de Vecinos ha sido RECHAZADA.\n"
-                f"Motivo: {note or 'Sin comentarios adicionales.'}\n\n"
-                "Si crees que se trata de un error, puedes volver a enviar tus datos.\n"
-            )
-            send_mail(
-                subject="Inscripción rechazada – Junta de Vecinos",
-                message=mensaje,
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                recipient_list=[self.email],
-                fail_silently=True,
-            )
+            try:
+                cuerpo = (
+                    f"Hola {self.full_name},\n\n"
+                    "Lamentamos informar que tu solicitud para unirte a la Junta de "
+                    "Vecinos UT ha sido RECHAZADA, ya que el archivo enviado o alguno "
+                    "de los datos proporcionados no son correctos.\n\n"
+                    f"Motivo: {note or 'Sin comentarios adicionales.'}\n\n"
+                    "Puedes corregir la información y volver a enviar tu solicitud "
+                    "cuando quieras.\n\n"
+                    "Saludos,\nJunta de Vecinos UT\n"
+                )
+                email = EmailMessage(
+                    subject="Inscripción rechazada – Junta de Vecinos UT",
+                    body=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[self.email],
+                )
+                email.send(fail_silently=False)
+            except Exception as e:
+                print("ERROR enviando correo de inscripción rechazada:", e)
 
     def __str__(self):
-        return f"Inscripción #{self.pk} - {self.get_status_display()}"
+        return f"Inscripción #{self.pk} - {self.get_status_display()} - {self.full_name}"
+
+
+
+
+

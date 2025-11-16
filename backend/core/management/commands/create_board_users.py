@@ -8,11 +8,11 @@ User = get_user_model()
 
 USERS = [
     # username, email, first_name, last_name, group_name
-    ("presidente1", "presidente1@example.com", "Presidente", "Uno", "Presidente"),
-    ("tesorero1", "tesorero1@example.com", "Tesorero", "Uno", "Tesorero"),
-    ("delegado1", "delegado1@example.com", "Delegado", "Uno", "Delegado"),
-    ("secretario1", "secretario1@example.com", "Secretario", "Uno", "Secretario"),
-    ("vecino1", "vecino1@example.com", "Vecino", "Uno", "Vecino"),
+    ("alexis.presidente", "alexis.sanchez@gmail.com", "Alexis", "Sanchez", "Presidente"),
+    ("messi.tesorero", "lionel.messi@gmail.com", "Liones", "Messi", "Tesorero"),
+    ("william.delegado", "william.lopez@gmail.com", "William", "Lopez", "Delegado"),
+    ("cristiano.secretario", "cristiano.ronaldo@gmail.com", "Cristiano", "ronaldo", "Secretario"),
+    ("miguel.vecino", "miguel.medina@gmail.com", "Miguel", "Medina", "Vecino"),
 ]
 
 DEFAULT_PASSWORD = "Demo1234!"  # cambia luego en admin si quieres

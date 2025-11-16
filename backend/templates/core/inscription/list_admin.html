@@ -33,8 +33,8 @@
         <tr>
           <th>ID</th>
           <th>Archivo</th>
-          <th>Enviado por</th>   {# nombre o usuario #}
-          <th>Dirección</th>      {# antes “Residente” #}
+          <th>Enviado por</th>
+          <th>Dirección</th>
           <th>Estado</th>
           <th>Creada</th>
           <th>Acciones</th>
@@ -48,24 +48,18 @@
             <a href="{{ obj.file.url }}" target="_blank" rel="noopener">Ver archivo</a>
           </td>
 
-          {# Enviado por: nombre del solicitante si existe; si no, el usuario logueado #}
+          {# Enviado por: nombre + email #}
           <td>
-            {% if obj.applicant_name %}
-              {{ obj.applicant_name }}
-            {% elif obj.submitted_by %}
-              {{ obj.submitted_by }}
-            {% else %}
-              —
+            {{ obj.full_name }}
+            {% if obj.email %}
+              <br>
+              <span style="color:#6b7280; font-size:.8rem;">{{ obj.email }}</span>
             {% endif %}
           </td>
 
           {# Dirección #}
           <td>
-            {% if obj.applicant_address %}
-              {{ obj.applicant_address }}
-            {% else %}
-              —
-            {% endif %}
+            {{ obj.address|default:"—" }}
           </td>
 
           <td>
