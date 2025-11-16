@@ -15,7 +15,7 @@ from django.contrib.auth.mixins import (
 )
 from django.core.mail import EmailMessage
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponseForbidden
+from django.http import FileResponse, Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -308,14 +308,10 @@ class AnnouncementCreateView(
     template_name = "core/announcement/announcement_form.html"
     success_url = reverse_lazy("core:announcement_list")
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
-
     def form_valid(self, form):
         form.instance.creado_por = self.request.user
         return super().form_valid(form)
+
 
 class AnnouncementUpdateView(
     LoginRequiredMixin, IsAnnouncementManagerMixin, UpdateView
@@ -324,11 +320,6 @@ class AnnouncementUpdateView(
     form_class = AnnouncementForm
     template_name = "core/announcement/announcement_form.html"
     success_url = reverse_lazy("core:announcement_list")
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        return kwargs
 
 class AnnouncementDeleteView(
     LoginRequiredMixin, IsAnnouncementManagerMixin, DeleteView
@@ -1840,7 +1831,6 @@ class InscriptionCreateView(CreateView):
     def form_valid(self, form):
         if self.request.user.is_authenticated:
             form.instance.submitted_by = self.request.user
-            # Por si no llenó el correo, usamos el del usuario
             if not form.instance.email and self.request.user.email:
                 form.instance.email = self.request.user.email
 
@@ -1870,14 +1860,23 @@ class InscriptionEvidenceManageView(PermissionRequiredMixin, UpdateView):
     template_name = "core/inscription/manage_form.html"
 
     def form_valid(self, form):
-        obj = form.save(commit=False)
-        if form.cleaned_data["status"] == obj.Status.APPROVED:
-            obj.approve(self.request.user, form.cleaned_data.get("note", ""))
-        elif form.cleaned_data["status"] == obj.Status.REJECTED:
-            obj.reject(self.request.user, form.cleaned_data.get("note", ""))
-        obj.save()
-        messages.success(self.request, "Inscripción actualizada.")
-        return super().form_valid(form)
+        obj: InscriptionEvidence = self.get_object()
+        status = form.cleaned_data["status"]
+        role_code = form.cleaned_data.get("role") or None   # 👈 IMPORTANTE
+        note = form.cleaned_data.get("note", "")
 
-    def get_success_url(self):
-        return reverse_lazy("core:insc_admin")
+        if status == InscriptionEvidence.Status.APPROVED:
+            obj.approve(user=self.request.user, note=note, role_code=role_code)
+        elif status == InscriptionEvidence.Status.REJECTED:
+            obj.reject(user=self.request.user, note=note)
+        else:
+            obj.status = InscriptionEvidence.Status.PENDING
+            obj.validated_by = self.request.user
+            obj.validated_at = timezone.now()
+            obj.note = note
+            obj.save()
+
+        messages.success(self.request, "Inscripción actualizada.")
+        return redirect("core:insc_admin")
+
+

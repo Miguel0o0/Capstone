@@ -18,19 +18,19 @@ from .models import (
 
 _DT_FMT = "%Y-%m-%dT%H:%M"  # para <input type="datetime-local">
 
+ROLE_CHOICES = [
+    ("Vecino", "Vecino"),
+    ("Delegado", "Delegado"),
+    ("Tesorero", "Tesorero"),
+    ("Secretario", "Secretario"),
+    ("Presidente", "Presidente"),
+]
+
 
 # -------------------------------------------------
 # ANUNCIOS
 # -------------------------------------------------
 class AnnouncementForm(forms.ModelForm):
-    def __init__(self, *args, user=None, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Si el usuario no tiene permiso de cambio de avisos,
-        # deshabilitamos el campo "importante".
-        if user is not None and not user.has_perm("core.change_announcement"):
-            self.fields["importante"].disabled = True
-
     class Meta:
         model = Announcement
         fields = ["titulo", "cuerpo", "visible_hasta", "importante"]
@@ -38,9 +38,7 @@ class AnnouncementForm(forms.ModelForm):
             "visible_hasta": forms.DateInput(attrs={"type": "date"}),
         }
 
-# -------------------------------------------------
-# REUNIONES
-# -------------------------------------------------
+
 # -------------------------------------------------
 # REUNIONES
 # -------------------------------------------------
@@ -514,57 +512,66 @@ class ReservationManageForm(forms.ModelForm):
 class InscriptionCreateForm(forms.ModelForm):
     class Meta:
         model = InscriptionEvidence
-        fields = ["applicant_name", "applicant_address", "email", "file"]
+        fields = ["first_name", "last_name", "rut", "address", "email", "file"]
 
         labels = {
-            "applicant_name": "Nombre completo",
-            "applicant_address": "Dirección",
+            "first_name": "Nombre",
+            "last_name": "Apellido",
+            "rut": "RUT",
+            "address": "Dirección",
             "email": "Correo electrónico",
             "file": "Boleta de servicio",
         }
 
-        help_texts = {
-            "email": (
-                "Usaremos este correo para avisarte si tu inscripción fue "
-                "aprobada o rechazada."
+        widgets = {
+            "first_name": forms.TextInput(
+                attrs={"placeholder": "Tu nombre"}
             ),
-            "file": (
-                "Sube una boleta de servicio (agua, luz, gas). "
-                "Formatos: PDF/JPG/PNG. Máx. 5 MB."
+            "last_name": forms.TextInput(
+                attrs={"placeholder": "Tu apellido"}
+            ),
+            "rut": forms.TextInput(
+                attrs={"placeholder": "12.345.678-9"}
+            ),
+            "address": forms.TextInput(
+                attrs={"placeholder": "Calle, número, depto, etc."}
+            ),
+            "email": forms.EmailInput(
+                attrs={"placeholder": "tucorreo@ejemplo.com"}
             ),
         }
 
-        widgets = {
-            "applicant_name": forms.TextInput(
-                attrs={
-                    "class": "input",
-                    "placeholder": "Tu nombre completo",
-                }
+        help_texts = {
+            "rut": "Ingresa tu RUT con o sin puntos, incluyendo el dígito verificador.",
+            "email": (
+                "Usaremos este correo para avisarte si tu inscripción "
+                "fue aprobada o rechazada."
             ),
-            "applicant_address": forms.TextInput(
-                attrs={
-                    "class": "input",
-                    "placeholder": "Tu dirección (calle, número, depto, etc.)",
-                }
-            ),
-            "email": forms.EmailInput(
-                attrs={
-                    "class": "input",
-                    "placeholder": "tucorreo@ejemplo.com",
-                }
-            ),
-            "file": forms.ClearableFileInput(
-                attrs={
-                    "class": "input",
-                }
-            ),
+            "file": "Sube una boleta de agua, luz o gas en PDF/JPG/PNG (máx. 5 MB).",
         }
+
 
 
 # --------------------------------------------------
 # INSCRIPCIONES – formulario de gestión (admin)
 # --------------------------------------------------
+# Opciones de rol que verá el presidente/secretario al aprobar
+
+
 class InscriptionManageForm(forms.ModelForm):
+    # Campo extra, NO es del modelo: solo sirve para decidir a qué grupo va
+    role = forms.ChoiceField(
+        label="Rol",
+        choices=[("", "---------")] + ROLE_CHOICES,  # primera opción vacía
+        required=False,
+        widget=forms.Select,
+    )
+
     class Meta:
         model = InscriptionEvidence
-        fields = ["status", "resident", "note"]
+        fields = ["status", "role", "note"]  # ya no usamos resident
+        widgets = {
+            "status": forms.Select,
+            "note": forms.Textarea(attrs={"rows": 4}),
+        }
+

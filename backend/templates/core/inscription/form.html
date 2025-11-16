@@ -6,7 +6,7 @@
 <div class="card" style="max-width: 520px; margin: 2rem auto;">
   <h1 style="margin-bottom:.5rem;">Validación de domicilio – Boleta de servicio</h1>
   <p style="color:#6b7280; font-size:.9rem; margin-bottom:1.2rem;">
-    Ingresa tu nombre, dirección, correo y sube una boleta de servicio (agua, luz, gas).
+    Ingresa tu nombre, apellido, RUT, dirección, correo y sube una boleta de servicio (agua, luz, gas).
     Usaremos estos datos para revisar tu solicitud y avisarte si tu inscripción fue aprobada
     o rechazada.
   </p>
@@ -14,40 +14,78 @@
   <form method="post" enctype="multipart/form-data" class="grid" style="gap:1rem;">
     {% csrf_token %}
 
-    {# Nombre completo #}
+    {# Nombre #}
     <div>
-      <label for="{{ form.applicant_name.id_for_label }}"
+      <label for="{{ form.first_name.id_for_label }}"
              style="display:block; margin-bottom:.25rem; font-weight:600;">
-        Nombre completo
+        Nombre
       </label>
-      {{ form.applicant_name }}
-      {% if form.applicant_name.help_text %}
+      {{ form.first_name }}
+      {% if form.first_name.help_text %}
         <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
-          {{ form.applicant_name.help_text }}
+          {{ form.first_name.help_text }}
         </p>
       {% endif %}
-      {% if form.applicant_name.errors %}
+      {% if form.first_name.errors %}
         <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.applicant_name.errors }}
+          {{ form.first_name.errors }}
+        </div>
+      {% endif %}
+    </div>
+
+    {# Apellido #}
+    <div>
+      <label for="{{ form.last_name.id_for_label }}"
+             style="display:block; margin-bottom:.25rem; font-weight:600;">
+        Apellido
+      </label>
+      {{ form.last_name }}
+      {% if form.last_name.help_text %}
+        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
+          {{ form.last_name.help_text }}
+        </p>
+      {% endif %}
+      {% if form.last_name.errors %}
+        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
+          {{ form.last_name.errors }}
+        </div>
+      {% endif %}
+    </div>
+
+    {# RUT #}
+    <div>
+      <label for="{{ form.rut.id_for_label }}"
+             style="display:block; margin-bottom:.25rem; font-weight:600;">
+        RUT
+      </label>
+      {{ form.rut }}
+      {% if form.rut.help_text %}
+        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
+          {{ form.rut.help_text }}
+        </p>
+      {% endif %}
+      {% if form.rut.errors %}
+        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
+          {{ form.rut.errors }}
         </div>
       {% endif %}
     </div>
 
     {# Dirección #}
     <div>
-      <label for="{{ form.applicant_address.id_for_label }}"
+      <label for="{{ form.address.id_for_label }}"
              style="display:block; margin-bottom:.25rem; font-weight:600;">
         Dirección
       </label>
-      {{ form.applicant_address }}
-      {% if form.applicant_address.help_text %}
+      {{ form.address }}
+      {% if form.address.help_text %}
         <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
-          {{ form.applicant_address.help_text }}
+          {{ form.address.help_text }}
         </p>
       {% endif %}
-      {% if form.applicant_address.errors %}
+      {% if form.address.errors %}
         <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.applicant_address.errors }}
+          {{ form.address.errors }}
         </div>
       {% endif %}
     </div>

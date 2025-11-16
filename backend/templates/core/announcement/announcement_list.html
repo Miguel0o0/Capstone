@@ -1,7 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1>Avisos y comunicados</h1>
+
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+  <h1>Avisos y comunicados</h1>
+
+  {# Solo roles con permiso (presidente/secretario/delegado) verán este botón #}
+  {% if perms.core.add_announcement or perms.core.change_announcement %}
+    <a href="{% url 'core:announcement_create' %}" class="btn btn-primary">
+      Nuevo aviso
+    </a>
+  {% endif %}
+</div>
 
 {% if avisos %}
   <div class="announcement-list">
