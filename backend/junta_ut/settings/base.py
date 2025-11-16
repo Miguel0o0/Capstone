@@ -13,12 +13,13 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 
-import dj_database_url
+from urllib.parse import urlparse, parse_qsl
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-load_dotenv(BASE_DIR / ".env")
+PROJECT_ROOT = BASE_DIR.parent
+load_dotenv(PROJECT_ROOT/ ".env")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -86,14 +87,21 @@ WSGI_APPLICATION = "junta_ut.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DEFAULT_SQLITE_URL = f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+# Tomamos la URL de conexión de Neon desde .env
+tmpPostgres = urlparse(os.getenv("DATABASE_URL", ""))
 
 DATABASES = {
-    "default": dj_database_url.config(
-        default=DEFAULT_SQLITE_URL,
-        conn_max_age=int(os.getenv("DB_CONN_MAX_AGE", "0")),
-        ssl_require=os.getenv("DB_SSL", "0") in ("1", "true", "True"),
-    )
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        # quitamos el "/" inicial del path
+        "NAME": tmpPostgres.path.lstrip("/"),
+        "USER": tmpPostgres.username,
+        "PASSWORD": tmpPostgres.password,
+        "HOST": tmpPostgres.hostname,
+        "PORT": tmpPostgres.port or 5432,
+        # opciones extra (sslmode=require, etc.)
+        "OPTIONS": dict(parse_qsl(tmpPostgres.query)),
+    }
 }
 
 
