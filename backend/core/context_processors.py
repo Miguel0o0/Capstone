@@ -1,4 +1,16 @@
+from django.conf import settings
 from django.urls import reverse
+
+
+def site_settings(request):
+    """
+    Context processor para exponer algunos ajustes globales en todas las plantillas.
+    Puedes agregar más claves si las necesitas en tus templates.
+    """
+    return {
+        "DEBUG": settings.DEBUG,
+        "SITE_NAME": "Junta UT",  # cambia el nombre si quieres
+    }
 
 
 def nav_items(request):

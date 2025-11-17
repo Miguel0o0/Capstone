@@ -12,14 +12,11 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 import os
 from pathlib import Path
-
-from urllib.parse import urlparse, parse_qsl
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-PROJECT_ROOT = BASE_DIR.parent
-load_dotenv(PROJECT_ROOT/ ".env")
+load_dotenv(BASE_DIR / ".env")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -71,11 +68,13 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "core.context_processors.nav_items",
+                "core.context_processors.site_settings",
+                "core.context_processors.nav_items",  # 👈 AÑADIR ESTA LÍNEA
             ],
         },
     },
 ]
+
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "core:home"
@@ -87,22 +86,26 @@ WSGI_APPLICATION = "junta_ut.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# Tomamos la URL de conexión de Neon desde .env
-tmpPostgres = urlparse(os.getenv("DATABASE_URL", ""))
-
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        # quitamos el "/" inicial del path
-        "NAME": tmpPostgres.path.lstrip("/"),
-        "USER": tmpPostgres.username,
-        "PASSWORD": tmpPostgres.password,
-        "HOST": tmpPostgres.hostname,
-        "PORT": tmpPostgres.port or 5432,
-        # opciones extra (sslmode=require, etc.)
-        "OPTIONS": dict(parse_qsl(tmpPostgres.query)),
+        "NAME": os.getenv("DB_NAME", "postgres"),
+        "USER": os.getenv("DB_USER", "postgres"),
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
+        "OPTIONS": {
+            # Opcional, pero recomendable con Supabase:
+            # "sslmode": "require",
+        },
     }
 }
+
+# Debug opcional para verificar (lo pueden borrar después)
+print("DEBUG DB_NAME:", os.getenv("DB_NAME"))
+print("DEBUG DB_USER:", os.getenv("DB_USER"))
+print("DEBUG DB_HOST:", os.getenv("DB_HOST"))
+print("DEBUG DB_PORT:", os.getenv("DB_PORT"))
 
 
 # Password validation
@@ -151,9 +154,12 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # En dev usamos una carpeta local de estáticos (no confundir con STATIC_ROOT)
+STATIC_URL = "static/"
+
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
+    BASE_DIR / "static",  # ahora apunta a backend/static
 ]
+
 
 # Para producción más adelante usaremos STATIC_ROOT y WhiteNoise (otro issue)
 # STATIC_ROOT = BASE_DIR / "staticfiles"
