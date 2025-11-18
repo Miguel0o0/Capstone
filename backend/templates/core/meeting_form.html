@@ -1,12 +1,52 @@
 {% extends "base.html" %}
 
-{% block content %}
-<h1>{% if object %}Editar{% else %}Nueva{% endif %} reunión</h1>
+{% block title %}Nueva reunión – Junta UT{% endblock %}
 
-<form method="post">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Guardar</button>
-  <a href="{% url 'core:meeting_list' %}">Cancelar</a>
-</form>
+{% block content %}
+  <section class="docs-form-card">
+    <h1 class="docs-form-title">
+      Nueva reunión
+    </h1>
+    <p class="docs-form-subtitle">
+      Programa aquí una nueva asamblea o reunión de la directiva indicando la fecha,
+      hora y el lugar donde se realizará.
+    </p>
+
+    <form method="post" class="docs-form meeting-form">
+      {% csrf_token %}
+
+      {# Recorremos todos los campos del formulario para darles el mismo estilo #}
+      {% for field in form %}
+        <div class="form-row">
+          <label for="{{ field.id_for_label }}">
+            {{ field.label }}
+          </label>
+          {{ field }}
+
+          {% if field.help_text %}
+            <p class="field-help">
+              {{ field.help_text }}
+            </p>
+          {% endif %}
+
+          {% if field.errors %}
+            <ul class="field-errors">
+              {% for error in field.errors %}
+                <li>{{ error }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      <div class="docs-form-actions">
+        <button type="submit" class="btn btn-primary">
+          Guardar
+        </button>
+        <a href="{% url 'core:meeting_list' %}" class="btn btn-outline">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </section>
 {% endblock %}

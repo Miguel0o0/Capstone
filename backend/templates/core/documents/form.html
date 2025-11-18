@@ -1,10 +1,59 @@
 {% extends "base.html" %}
+
+{% block title %}Subir documento – Junta UT{% endblock %}
+
 {% block content %}
-<h1>Subir documento</h1>
-<form method="post" enctype="multipart/form-data">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button type="submit">Guardar</button>
-  <a href="{% url 'core:documents-list' %}">Cancelar</a>
-</form>
+<section class="docs-form-card">
+  <h1 class="docs-form-title">Subir documento</h1>
+  <p class="docs-form-subtitle">
+    Desde aquí puedes subir comunicados, actas u otros documentos importantes
+    para la comunidad. Completa la información y adjunta el archivo.
+  </p>
+
+  <form method="post" enctype="multipart/form-data" class="docs-form">
+    {% csrf_token %}
+
+    {# Errores generales del formulario #}
+    {% if form.non_field_errors %}
+      <div style="color:#b91c1c; font-size:.85rem; margin-bottom:.5rem;">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    {# Recorremos los campos uno por uno para aplicar el mismo estilo #}
+    {% for field in form %}
+      <div class="form-row">
+        <label for="{{ field.id_for_label }}">
+          {{ field.label }}
+          {% if field.field.required %}
+            <span style="color:#ef4444;">*</span>
+          {% endif %}
+        </label>
+
+        {{ field }}
+
+        {% if field.help_text %}
+          <p style="margin:0.2rem 0 0; font-size:.8rem; color:#6b7280;">
+            {{ field.help_text }}
+          </p>
+        {% endif %}
+
+        {% if field.errors %}
+          <div style="color:#b91c1c; font-size:.8rem; margin-top:.2rem;">
+            {{ field.errors }}
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    <div class="docs-form-actions">
+      <button type="submit" class="btn btn-primary">
+        Guardar
+      </button>
+      <a href="{% url 'core:documents-list' %}" class="btn btn-outline">
+        Cancelar
+      </a>
+    </div>
+  </form>
+</section>
 {% endblock %}

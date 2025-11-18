@@ -762,24 +762,49 @@ a:hover { text-decoration: underline; }
 }
 
 /* Inputs de texto / fecha con estilo “pastilla” */
+/* Inputs de texto / fecha / select / archivo con estilo “pastilla” */
 .docs-form .form-row input[type="text"],
 .docs-form .form-row input[type="date"],
-.docs-form .form-row input[type="email"] {
+.docs-form .form-row input[type="email"],
+.docs-form .form-row select,
+.docs-form .form-row input[type="file"] {
   width: 100%;
   padding: 0.7rem 0.9rem;
-  border-radius: 999px;
+  border-radius: 999px;     /* 👈 hace el efecto ovalado */
   border: 1px solid #d1d5db;
   font-size: 0.9rem;
   outline: none;
+  background-color: #ffffff;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .docs-form .form-row input[type="text"]:focus,
 .docs-form .form-row input[type="date"]:focus,
-.docs-form .form-row input[type="email"]:focus {
+.docs-form .form-row input[type="email"]:focus,
+.docs-form .form-row select:focus,
+.docs-form .form-row input[type="file"]:focus {
   border-color: #1d4ed8;
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
 }
+
+/* Textarea un poco más redondeado (no pastilla completa para que se vea cómodo) */
+.docs-form .form-row textarea {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: 16px;      /* esquinas bien redondeadas */
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  outline: none;
+  resize: vertical;
+  min-height: 150px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.docs-form .form-row textarea:focus {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
 
 /* Botones de acciones abajo del formulario */
 .docs-form-actions {
@@ -954,5 +979,171 @@ a:hover { text-decoration: underline; }
     max-width: 100%;
     margin-inline: 1rem;
     padding: 1.5rem 1.5rem;
+  }
+}
+
+/* ===== Nueva reunión – estilos de hora ===== */
+
+.meeting-form input[type="time"] {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;           /* pastilla/ovalado */
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  background-color: #ffffff;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Efecto foco igual que otros inputs “bonitos” */
+.meeting-form input[type="time"]:focus {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+/* (Opcional) Quitar un poco el look feo de los controles nativos en algunos navegadores */
+.meeting-form input[type="time"]::-webkit-inner-spin-button,
+.meeting-form input[type="time"]::-webkit-clear-button {
+  display: none;
+}
+
+.meeting-form input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+/* ===== Inscripciones – gestionar inscripción ===== */
+
+.insc-manage-wrapper {
+  max-width: 900px;
+  margin: 2.5rem auto 3rem;
+}
+
+.insc-manage-card {
+  padding: 2rem 2.25rem 2.25rem;
+}
+
+.insc-manage-header {
+  margin-bottom: 1.5rem;
+}
+
+.insc-manage-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.insc-manage-subtitle {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+/* Resumen superior */
+.insc-manage-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.insc-summary-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.insc-summary-label {
+  font-weight: 600;
+  color: #374151;
+  min-width: 80px;
+}
+
+.insc-summary-value {
+  color: #111827;
+}
+
+.insc-manage-divider {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 0 0 1.5rem;
+}
+
+/* Formulario */
+.insc-manage-form p {
+  margin: 0 0 0.9rem;
+}
+
+.insc-manage-form label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Selects e inputs “pastilla” */
+.insc-manage-form select,
+.insc-manage-form input[type="text"],
+.insc-manage-form input[type="email"] {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.insc-manage-form select:focus,
+.insc-manage-form input[type="text"]:focus,
+.insc-manage-form input[type="email"]:focus {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+/* Nota (textarea) un poco más grande y redondeada */
+.insc-manage-form textarea {
+  width: 100%;
+  max-width: 480px;
+  min-height: 110px;
+  padding: 0.7rem 0.9rem;
+  border-radius: 14px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.insc-manage-form textarea:focus {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+.insc-manage-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.75rem;
+}
+
+/* Pie con info de última validación */
+.insc-manage-footer {
+  margin-top: 1.5rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .insc-manage-card {
+    padding-inline: 1.5rem;
+  }
+
+  .insc-manage-summary {
+    font-size: 0.85rem;
   }
 }
