@@ -464,7 +464,6 @@ class PaymentListAdminView(
             qs = qs.filter(fee__period=period)
         return qs
 
-    # 👇 NUEVO
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         u = self.request.user
@@ -472,17 +471,20 @@ class PaymentListAdminView(
         is_secretary = u.groups.filter(name="Secretario").exists()
         is_treasurer = u.groups.filter(name="Tesorero").exists()
 
-        # Título:
-        # - Secretario  -> "Pagos"
-        # - Tesorero    -> "Pagos"
-        # - Otros (Admin/Presidente, etc.) -> "Pagos (admin)"
-        ctx["page_title"] = (
-            "Pagos" if (is_secretary or is_treasurer) else "Pagos (admin)"
-        )
+        # 🔹 Título siempre "Pagos"
+        ctx["page_title"] = "Pagos"
 
-        # Botón "Realizar pago":
-        # - TODOS lo ven, menos el Secretario
+        # 🔹 ¿Mostramos el botón?
+        # si quieres ocultarlo al secretario, mantenemos esta lógica:
         ctx["show_pay_button"] = not is_secretary
+
+        # 🔹 A dónde apunta el botón:
+        # - si el usuario tiene permiso para crear pagos -> vista admin
+        # - si NO lo tiene (Delegado, vecino, etc.) -> "Mis pagos"
+        if u.has_perm("core.add_payment"):
+            ctx["pay_button_url"] = reverse("core:payment_create_admin")
+        else:
+            ctx["pay_button_url"] = reverse("core:my_payments")
 
         return ctx
 

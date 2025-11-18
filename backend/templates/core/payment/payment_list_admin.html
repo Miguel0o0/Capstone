@@ -17,7 +17,7 @@
       </div>
 
       {% if show_pay_button %}
-        <a href="{% url 'core:payment_create_admin' %}" class="btn btn-primary btn-small">
+        <a href="{{ pay_button_url }}" class="btn btn-primary btn-small">
           Realizar pago
         </a>
       {% endif %}

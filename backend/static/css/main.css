@@ -877,12 +877,13 @@ a:hover { text-decoration: underline; }
 }
 
 .announcement-detail-btn {
-  min-width: 180px;          /* mismo ancho para todos */
+  min-width: 300px;          /* mismo ancho para todos */
   padding: 0.6rem 1.5rem;
   display: inline-flex;
   justify-content: center;
   align-items: center;
   text-align: center;
+  flex: 1;
 }
 
 /* En móvil los ponemos uno bajo otro y ocupando todo el ancho */
