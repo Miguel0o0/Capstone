@@ -1,45 +1,79 @@
 {% extends "base.html" %}
 {% block title %}Mis reservas{% endblock %}
-{% block content %}
-<h1>Mis reservas</h1>
-<p><a class="btn btn-primary" href="{% url 'core:reservation_create' %}">Nueva reserva</a></p>
 
-<table class="table">
-  <thead>
-    <tr>
-      <th>Recurso</th>
-      <th>Vecino</th>
-      <th>Título</th>
-      <th>Inicio</th>
-      <th>Término</th>
-      <th>Estado</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for r in reservas %}
-    <tr>
-      <td>{{ r.resource }}</td>
-      <td>{{ r.requested_by }}</td>
-      <td>{{ r.title }}</td>
-      <td>{{ r.start_at|date:"d-m-Y H:i" }}</td>
-      <td>{{ r.end_at|date:"d-m-Y H:i" }}</td>
-      <td>{{ r.get_status_display }}</td>
-      <td>
-        {# Solo puede cancelar quien creó la reserva y si está pendiente/aprobada #}
-        {% if r.requested_by_id == user.id %}
-          {% if r.status == "PENDING" or r.status == "APPROVED" %}
-            <form method="post" action="{% url 'core:reservation_cancel' r.pk %}">
-              {% csrf_token %}
-              <button class="btn btn-small" type="submit">Cancelar</button>
-            </form>
+{% block content %}
+<div class="head-between" style="align-items:center; margin-bottom:1rem;">
+  <h1>Mis reservas</h1>
+  <a class="btn btn-primary" href="{% url 'core:reservation_create' %}">
+    Nueva reserva
+  </a>
+</div>
+
+<p class="text-muted" style="margin-bottom:1.5rem;">
+  Aquí verás tus reservas de canchas y salón, con su estado actualizado. 
+  Si tienes una reserva pendiente con cobro, podrás subir el comprobante desde la sección
+  <strong>“Mis pagos”</strong>.
+</p>
+
+<div class="card" style="max-width:980px; margin:0 auto;">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Recurso</th>
+        <th>Vecino</th>
+        <th>Título</th>
+        <th>Inicio</th>
+        <th>Término</th>
+        <th>Estado</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in reservas %}
+      <tr>
+        <td>{{ r.resource }}</td>
+        <td>{{ r.requested_by }}</td>
+        <td>{{ r.title }}</td>
+        <td>{{ r.start_at|date:"d-m-Y H:i" }}</td>
+        <td>{{ r.end_at|date:"d-m-Y H:i" }}</td>
+        <td>
+          {# Píldoras de estado, usando el mismo estilo que en Mis pagos #}
+          {% if r.status == "PENDING" %}
+            <span class="status-pill status-pill-pending">
+              {{ r.get_status_display }}
+            </span>
+          {% elif r.status == "APPROVED" %}
+            <span class="status-pill status-pill-approved">
+              {{ r.get_status_display }}
+            </span>
+          {% elif r.status == "CANCELLED" %}
+            <span class="status-pill status-pill-cancelled">
+              {{ r.get_status_display }}
+            </span>
+          {% else %}
+            {{ r.get_status_display }}
           {% endif %}
-        {% endif %}
-      </td>
-    </tr>
-  {% empty %}
-    <tr><td colspan="7" class="muted">No tienes reservas.</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+        </td>
+        <td>
+          {# Solo puede cancelar quien creó la reserva y si está pendiente/aprobada #}
+          {% if r.requested_by_id == user.id %}
+            {% if r.status == "PENDING" or r.status == "APPROVED" %}
+              <form method="post" action="{% url 'core:reservation_cancel' r.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline" type="submit">Cancelar</button>
+              </form>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr>
+        <td colspan="7" class="muted" style="text-align:center;">
+          No tienes reservas por ahora.
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

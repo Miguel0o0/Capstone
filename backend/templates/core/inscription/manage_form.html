@@ -1,75 +1,77 @@
 {% extends "base.html" %}
 
-{% block title %}Gestionar inscripción #{{ object.id }}{% endblock %}
+{% block title %}Gestionar inscripción #{{ object.id }} – Junta UT{% endblock %}
 
 {% block content %}
-<div class="container">
-  <h1>Gestionar inscripción #{{ object.id }}</h1>
+<section class="insc-manage-wrapper">
+  <div class="card insc-manage-card">
+    <header class="insc-manage-header">
+      <h1 class="insc-manage-title">
+        Gestionar inscripción #{{ object.id }}
+      </h1>
+      <p class="insc-manage-subtitle">
+        Revisa el archivo enviado, define el estado de la solicitud y asigna el rol
+        correspondiente a la persona que se está inscribiendo en la Junta.
+      </p>
+    </header>
 
-  <p>
-    <strong>Archivo:</strong>
-    <a href="{{ object.file.url }}" target="_blank" rel="noopener">Ver archivo</a>
-  </p>
+    <!-- Resumen de la inscripción -->
+    <section class="insc-manage-summary">
+      <div class="insc-summary-row">
+        <span class="insc-summary-label">Archivo:</span>
+        {# deja aquí el mismo link que ya tenías para ver el archivo #}
+        <span class="insc-summary-value">
+          <a href="{{ object.file.url }}" target="_blank" rel="noopener">
+            Ver archivo
+          </a>
+        </span>
+      </div>
 
-  <p class="text-muted">
-    Enviado por: {{ object.full_name }}
-    {% if object.email %} ({{ object.email }}){% endif %}
-    {% if object.address %} • Dirección: {{ object.address }}{% endif %}
-    • Creado: {{ object.created_at|date:"d/m/Y H:i" }}
-  </p>
+      <div class="insc-summary-row">
+        <span class="insc-summary-label">Enviado por:</span>
+        <span class="insc-summary-value">
+          {{ object.full_name }} ({{ object.email }})
+          · Dirección: {{ object.address }}
+          · Creado: {{ object.created_at|date:"d/m/Y H:i" }}
+        </span>
+      </div>
 
-  {% if object.desired_role %}
-    <p class="text-muted">
-      Rol solicitado: {{ object.get_desired_role_display }}
-    </p>
-  {% endif %}
+      <div class="insc-summary-row">
+        <span class="insc-summary-label">Rol solicitado:</span>
+        <span class="insc-summary-value">
+          {{ object.requested_role_display }}
+        </span>
+      </div>
+    </section>
 
-  <form method="post" class="mt-3">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
+    <hr class="insc-manage-divider">
 
-    <div class="mb-3">
-      <label class="form-label">Estado</label>
-      {{ form.status }}
-      {% if form.status.errors %}
-        <div class="text-danger small">
-          {{ form.status.errors|striptags }}
-        </div>
-      {% endif %}
-    </div>
+    <!-- Formulario de gestión -->
+    <form method="post" class="insc-manage-form">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
 
-    <div class="mb-3">
-      <label class="form-label">Rol</label>
-      {{ form.role }}
-      {% if form.role.errors %}
-        <div class="text-danger small">
-          {{ form.role.errors|striptags }}
-        </div>
-      {% endif %}
-    </div>
+      <div class="insc-manage-grid">
+        {{ form.as_p }}
+      </div>
 
-    <div class="mb-3">
-      <label class="form-label">Nota (opcional)</label>
-      {{ form.note }}
-      {% if form.note.errors %}
-        <div class="text-danger small">
-          {{ form.note.errors|striptags }}
-        </div>
-      {% endif %}
-    </div>
+      <div class="insc-manage-actions">
+        <button type="submit" class="btn btn-primary">
+          Guardar cambios
+        </button>
+        <a href="{% url 'core:insc_admin' %}" class="btn btn-outline">
+          Volver
+        </a>
+      </div>
+    </form>
 
-    <div class="d-flex gap-2">
-      <button type="submit" class="btn btn-primary">Guardar</button>
-      <a class="btn btn-secondary" href="{% url 'core:insc_admin' %}">Volver</a>
-    </div>
-  </form>
-
-  {% if object.validated_at %}
-    <hr>
-    <p class="text-muted">
-      Última validación: {{ object.validated_at|date:"d/m/Y H:i" }}
-      por {{ object.validated_by|default:"—" }}
-    </p>
-  {% endif %}
-</div>
+    {% if object.last_validated_at %}
+      <p class="insc-manage-footer">
+        Última validación:
+        {{ object.last_validated_at|date:"d/m/Y H:i" }}
+        por {{ object.last_validated_by }}
+      </p>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

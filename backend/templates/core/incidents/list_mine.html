@@ -4,63 +4,93 @@
 {% block title %}Mis incidencias{% endblock %}
 
 {% block content %}
-<div class="head-between">
-  <h1>Mis incidencias</h1>
-  <a class="btn btn-primary" href="{% url 'core:incident_create' %}">Reportar incidencia</a>
+<div style="max-width: 1100px; margin: 2.5rem auto 3rem;">
+
+  <!-- Encabezado + botón -->
+  <header style="text-align: center; margin-bottom: 1.75rem;">
+    <h1 style="font-size: 1.8rem; font-weight: 700; margin-bottom: .5rem;">
+      Mis incidencias
+    </h1>
+    <p style="color:#6b7280; font-size:.95rem; margin-bottom: 1rem;">
+      Aquí podrás ver los reportes que has realizado en la comunidad y el detalle
+      de cada incidencia que has informado a la Junta.
+    </p>
+    <a class="btn btn-primary" href="{% url 'core:incident_create' %}">
+      Reportar incidencia
+    </a>
+  </header>
+
+  {% if incidencias %}
+    <!-- Lista de tarjetas (sin viñetas) -->
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+      {% for i in incidencias %}
+        <article class="card"
+                 style="display:flex; gap:1.5rem; align-items:flex-start; padding:1.25rem 1.5rem;">
+
+          {# Foto a la izquierda si existe #}
+          {% if i.foto %}
+            <div style="flex:0 0 220px;">
+              <img src="{{ i.foto.url }}"
+                   alt="Foto incidencia"
+                   style="width:100%; max-height:180px; object-fit:cover; border-radius:12px;">
+            </div>
+          {% endif %}
+
+          <div style="flex:1;">
+            <h2 style="font-size:1.1rem; font-weight:600; margin:0 0 .25rem;">
+              {{ i.titulo }}
+            </h2>
+
+            <p style="margin:0 0 .4rem; color:#6b7280; font-size:.85rem;">
+              {% if i.get_status_display %}
+                Estado: {{ i.get_status_display }} •
+              {% endif %}
+              Creada: {{ i.created_at|date:"d/m/Y H:i" }}
+            </p>
+
+            <p style="margin:0; font-size:.9rem;">
+              {{ i.descripcion|linebreaksbr }}
+            </p>
+
+            {# Para perfiles que no sean Vecino, mostramos quién la reportó #}
+            {% if not user|has_group:"Vecino" %}
+              <p style="margin-top:.4rem; font-size:.8rem; color:#6b7280;">
+                Reportada por: {{ i.reportado_por }}
+              </p>
+            {% endif %}
+
+            {# Acciones (editar / eliminar) con la misma lógica que tenías antes #}
+            <div style="margin-top:.5rem; font-size:.85rem;">
+              {% if perms.core.change_incident %}
+                {% if user|has_group:"Delegado" or user|has_group:"Secretario" or user|has_group:"Presidente" or user.is_superuser %}
+                  <a href="{% url 'core:incident_update' i.pk %}">Editar</a>
+                {% else %}
+                  {% if i.reportado_por == user %}
+                    <a href="{% url 'core:incident_update' i.pk %}">Editar</a>
+                  {% endif %}
+                {% endif %}
+              {% endif %}
+
+              {% if perms.core.delete_incident %}
+                {% if user|has_group:"Delegado" or user|has_group:"Secretario" or user|has_group:"Presidente" or user.is_superuser %}
+                  {% if perms.core.change_incident %} | {% endif %}
+                  <a href="{% url 'core:incident_delete' i.pk %}">Eliminar</a>
+                {% else %}
+                  {% if i.reportado_por == user %}
+                    {% if perms.core.change_incident %} | {% endif %}
+                    <a href="{% url 'core:incident_delete' i.pk %}">Eliminar</a>
+                  {% endif %}
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p style="text-align:center; color:#9ca3af; margin-top:2rem;">
+      No tienes incidencias aún.
+    </p>
+  {% endif %}
 </div>
-
-<ul class="list">
-  {% for i in incidencias %}
-    <li class="card">
-      <h2 class="card-title">{{ i.titulo }}</h2>
-
-      <div class="card-body">
-        {# Mostrar quién reportó SOLO para perfiles que no sean Vecino #}
-        {% if not user|has_group:"Vecino" %}
-          <p><small>Reportada por: {{ i.reportado_por }}</small></p>
-        {% endif %}
-
-        <p>{{ i.descripcion|linebreaksbr }}</p>
-
-        {% if i.foto %}
-          <p>
-            <img src="{{ i.foto.url }}" alt="Foto incidencia" style="max-width:280px;">
-          </p>
-        {% endif %}
-
-        <small>Creada: {{ i.created_at|date:"d/m/Y H:i" }}</small>
-
-        <div class="mt-2">
-          {# --- EDITAR --- #}
-          {% if perms.core.change_incident %}
-            {% if user|has_group:"Delegado" or user|has_group:"Secretario" or user|has_group:"Presidente" or user.is_superuser %}
-              {# Delegado / Secretario / Presidente / superuser -> cualquier incidencia #}
-              <a href="{% url 'core:incident_update' i.pk %}">Editar</a>
-            {% else %}
-              {# Tesorero o Vecino (u otros) -> solo sus propias incidencias #}
-              {% if i.reportado_por == user %}
-                <a href="{% url 'core:incident_update' i.pk %}">Editar</a>
-              {% endif %}
-            {% endif %}
-          {% endif %}
-
-          {# --- ELIMINAR --- #}
-          {% if perms.core.delete_incident %}
-            {% if user|has_group:"Delegado" or user|has_group:"Secretario" or user|has_group:"Presidente" or user.is_superuser %}
-              {% if perms.core.change_incident %} | {% endif %}
-              <a href="{% url 'core:incident_delete' i.pk %}">Eliminar</a>
-            {% else %}
-              {% if i.reportado_por == user %}
-                {% if perms.core.change_incident %} | {% endif %}
-                <a href="{% url 'core:incident_delete' i.pk %}">Eliminar</a>
-              {% endif %}
-            {% endif %}
-          {% endif %}
-        </div>
-      </div>
-    </li>
-  {% empty %}
-    <li class="muted">No tienes incidencias aún.</li>
-  {% endfor %}
-</ul>
 {% endblock %}

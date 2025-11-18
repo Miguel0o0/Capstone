@@ -3,135 +3,124 @@
 {% block title %}Validación de domicilio – Boleta de servicio{% endblock %}
 
 {% block content %}
-<div class="card" style="max-width: 520px; margin: 2rem auto;">
-  <h1 style="margin-bottom:.5rem;">Validación de domicilio – Boleta de servicio</h1>
-  <p style="color:#6b7280; font-size:.9rem; margin-bottom:1.2rem;">
-    Ingresa tu nombre, apellido, RUT, dirección, correo y sube una boleta de servicio (agua, luz, gas).
-    Usaremos estos datos para revisar tu solicitud y avisarte si tu inscripción fue aprobada
-    o rechazada.
-  </p>
+<div class="auth-page">
+  <div class="auth-card auth-card--wide">
+    <h1 class="auth-title">Validación de domicilio – Boleta de servicio</h1>
 
-  <form method="post" enctype="multipart/form-data" class="grid" style="gap:1rem;">
-    {% csrf_token %}
+    <p style="color:#000000; font-size:.9rem; margin-bottom:1.2rem; text-align:left;">
+      Ingresa los datos que solicitamos por favor, junto con una boleta (agua, luz o gas).
+      Usaremos estos datos para revisar tu solicitud y avisarte si tu inscripción fue aprobada
+      o rechazada.
+    </p>
 
-    {# Nombre #}
-    <div>
-      <label for="{{ form.first_name.id_for_label }}"
-             style="display:block; margin-bottom:.25rem; font-weight:600;">
-        Nombre
-      </label>
-      {{ form.first_name }}
-      {% if form.first_name.help_text %}
-        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
-          {{ form.first_name.help_text }}
-        </p>
-      {% endif %}
-      {% if form.first_name.errors %}
-        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.first_name.errors }}
-        </div>
-      {% endif %}
-    </div>
+    <form method="post" enctype="multipart/form-data" class="auth-form">
+      {% csrf_token %}
 
-    {# Apellido #}
-    <div>
-      <label for="{{ form.last_name.id_for_label }}"
-             style="display:block; margin-bottom:.25rem; font-weight:600;">
-        Apellido
-      </label>
-      {{ form.last_name }}
-      {% if form.last_name.help_text %}
-        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
-          {{ form.last_name.help_text }}
-        </p>
-      {% endif %}
-      {% if form.last_name.errors %}
-        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.last_name.errors }}
-        </div>
-      {% endif %}
-    </div>
+      <!-- Nombre -->
+      <div class="form-group">
+        <label for="{{ form.first_name.id_for_label }}">Nombre</label>
+        {{ form.first_name }}
+        {% if form.first_name.help_text %}
+          <p class="text-muted" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.first_name.help_text }}
+          </p>
+        {% endif %}
+        {% if form.first_name.errors %}
+          <div class="text-danger" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.first_name.errors }}
+          </div>
+        {% endif %}
+      </div>
 
-    {# RUT #}
-    <div>
-      <label for="{{ form.rut.id_for_label }}"
-             style="display:block; margin-bottom:.25rem; font-weight:600;">
-        RUT
-      </label>
-      {{ form.rut }}
-      {% if form.rut.help_text %}
-        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
-          {{ form.rut.help_text }}
-        </p>
-      {% endif %}
-      {% if form.rut.errors %}
-        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.rut.errors }}
-        </div>
-      {% endif %}
-    </div>
+      <!-- Apellido -->
+      <div class="form-group">
+        <label for="{{ form.last_name.id_for_label }}">Apellido</label>
+        {{ form.last_name }}
+        {% if form.last_name.help_text %}
+          <p class="text-muted" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.last_name.help_text }}
+          </p>
+        {% endif %}
+        {% if form.last_name.errors %}
+          <div class="text-danger" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.last_name.errors }}
+          </div>
+        {% endif %}
+      </div>
 
-    {# Dirección #}
-    <div>
-      <label for="{{ form.address.id_for_label }}"
-             style="display:block; margin-bottom:.25rem; font-weight:600;">
-        Dirección
-      </label>
-      {{ form.address }}
-      {% if form.address.help_text %}
-        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
-          {{ form.address.help_text }}
-        </p>
-      {% endif %}
-      {% if form.address.errors %}
-        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.address.errors }}
-        </div>
-      {% endif %}
-    </div>
+      <!-- RUT -->
+      <div class="form-group">
+        <label for="{{ form.rut.id_for_label }}">RUT</label>
+        {{ form.rut }}
+        {% if form.rut.help_text %}
+          <p class="text-muted" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.rut.help_text }}
+          </p>
+        {% endif %}
+        {% if form.rut.errors %}
+          <div class="text-danger" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.rut.errors }}
+          </div>
+        {% endif %}
+      </div>
 
-    {# Correo electrónico #}
-    <div>
-      <label for="{{ form.email.id_for_label }}"
-             style="display:block; margin-bottom:.25rem; font-weight:600;">
-        Correo electrónico
-      </label>
-      {{ form.email }}
-      {% if form.email.help_text %}
-        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
-          {{ form.email.help_text }}
-        </p>
-      {% endif %}
-      {% if form.email.errors %}
-        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.email.errors }}
-        </div>
-      {% endif %}
-    </div>
+      <!-- Dirección -->
+      <div class="form-group">
+        <label for="{{ form.address.id_for_label }}">Dirección</label>
+        {{ form.address }}
+        {% if form.address.help_text %}
+          <p class="text-muted" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.address.help_text }}
+          </p>
+        {% endif %}
+        {% if form.address.errors %}
+          <div class="text-danger" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.address.errors }}
+          </div>
+        {% endif %}
+      </div>
 
-    {# Boleta de servicio #}
-    <div>
-      <label for="{{ form.file.id_for_label }}"
-             style="display:block; margin-bottom:.25rem; font-weight:600;">
-        Boleta de servicio
-      </label>
-      {{ form.file }}
-      {% if form.file.help_text %}
-        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
-          {{ form.file.help_text }}
-        </p>
-      {% endif %}
-      {% if form.file.errors %}
-        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.file.errors }}
-        </div>
-      {% endif %}
-    </div>
+      <!-- Correo electrónico -->
+      <div class="form-group">
+        <label for="{{ form.email.id_for_label }}">Correo electrónico</label>
+        {{ form.email }}
+        {% if form.email.help_text %}
+          <p class="text-muted" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.email.help_text }}
+          </p>
+        {% endif %}
+        {% if form.email.errors %}
+          <div class="text-danger" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.email.errors }}
+          </div>
+        {% endif %}
+      </div>
 
-    <div style="display:flex; gap:.5rem; margin-top:.5rem;">
-      <button type="submit" class="btn btn-primary">Enviar</button>
-      <a href="{% url 'core:home' %}" class="btn btn-outline">Cancelar</a>
-    </div>
-  </form>
+      <!-- Boleta de servicio -->
+      <div class="form-group">
+        <label for="{{ form.file.id_for_label }}">Boleta de servicio</label>
+        {{ form.file }}
+        {% if form.file.help_text %}
+          <p class="text-muted" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.file.help_text }}
+          </p>
+        {% endif %}
+        {% if form.file.errors %}
+          <div class="text-danger" style="font-size:.8rem; margin-top:.25rem;">
+            {{ form.file.errors }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div style="display:flex; gap:.5rem; margin-top:.75rem;">
+        <button type="submit" class="btn btn-primary auth-btn">
+          Enviar solicitud
+        </button>
+        <a href="{% url 'core:home' %}" class="btn btn-outline">
+          Cancelar
+        </a>
+      </div>
+    </form>
+  </div>
 </div>
 {% endblock %}

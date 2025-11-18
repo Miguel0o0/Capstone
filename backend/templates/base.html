@@ -16,14 +16,14 @@
 <body>
 
   <header class="site-header">
-    <nav class="navbar">
-      <!-- Marca: siempre a la izquierda -->
+    <nav class="navbar navbar-main">
+      <!-- Marca -->
       <a class="brand" href="{% url 'core:home' %}">
         <img src="{% static 'img/logo.png' %}" alt="Logo Junta UT">
         <span>Junta UT</span>
       </a>
 
-      <!-- Menú central: solo cuando está autenticado -->
+      <!-- Menú central -->
       <ul class="nav-links">
         {% if request.user.is_authenticated %}
           {% if nav_items %}
@@ -68,7 +68,47 @@
   </main>
 
   <footer class="site-footer">
-    <p>© {% now "Y" %} Junta de Vecinos UT</p>
+    <div class="footer-inner">
+      <!-- Columna izquierda: “logo” + descripción -->
+      <div class="footer-brand">
+        <div class="footer-logo-pill">JU</div>
+        <div>
+          <h3 class="footer-brand-title">Junta de Vecinos UT</h3>
+          <p class="footer-brand-text">
+            Espacio de participación y apoyo para las vecinas y vecinos de la comunidad.
+            Aquí podrás mantenerte informado, gestionar tus reservas y mantener tu
+            relación con la Junta al día.
+          </p>
+        </div>
+      </div>
+
+      <!-- Columna centro: mapa -->
+      <div class="footer-map">
+        <!-- Reemplaza el SRC por el embed real que te entregue Google Maps -->
+        <iframe
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1663.3896888261488!2d-70.63664633730734!3d-33.50711671620544!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9662dabd13744667%3A0xb25ac57d8ab7fa80!2sDiego%20de%20Meza%205431%2C%208960425%20San%20Joaqu%C3%ADn%2C%20Regi%C3%B3n%20Metropolitana!5e0!3m2!1ses!2scl!4v1763415701685!5m2!1ses!2scl" 
+          width="360"
+          height="220"
+          style="border:0;"
+          allowfullscreen=""
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade">
+        </iframe>
+      </div>
+
+      <!-- Columna derecha: contacto -->
+      <div class="footer-contact">
+        <h3 class="footer-contact-title">CONTACTO</h3>
+        <p><span class="footer-contact-label">Dirección:</span> Diego de Meza 5431, San Joaquín, Santiago.</p>
+        <p><span class="footer-contact-label">Teléfono:</span> +56 9 1234 5678</p>
+        <p><span class="footer-contact-label">Correo:</span> juntaut@gmail.com</p>
+        <p><span class="footer-contact-label">Horario:</span> Lunes a viernes de 18:30 a 21:00 hrs.</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      © {% now "Y" %} Junta de Vecinos UT
+    </div>
   </footer>
 
   {% block extra_body %}{% endblock %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load l10n %}
 
 {% block title %}Subir comprobante{% endblock %}
 
@@ -8,8 +9,10 @@
 
   <p style="color:#6b7280; font-size:.9rem; margin-bottom:1rem;">
     Reserva: {{ object.reservation.resource.nombre }}
-    ({{ object.reservation.start_at|date:"d/m/Y H:i" }}) — 
-    Monto: ${{ object.amount }} — Estado: {{ object.get_status_display }}
+    ({{ object.reservation.start_at|date:"d/m/Y H:i" }})<br>
+    Monto: ${{ object.amount|floatformat:0|localize }} — Estado: {{ object.get_status_display }}<br>
+    Destinatario: Ricardo Arjona<br>
+    Rut: 11.111.111-1
   </p>
 
   <form method="post" enctype="multipart/form-data">
@@ -18,31 +21,22 @@
     {{ form.non_field_errors }}
 
     <div style="margin-bottom:1rem;">
-      <label for="{{ form.receipt_file.id_for_label }}" style="display:block; font-weight:600; margin-bottom:.25rem;">
+      <label for="{{ form.receipt_file.id_for_label }}"
+             style="display:block; font-weight:600; margin-bottom:.25rem;">
         Comprobante de transferencia
       </label>
       {{ form.receipt_file }}
+
       {% if form.receipt_file.errors %}
         <div style="color:#b91c1c; font-size:.85rem; margin-top:.25rem;">
           {{ form.receipt_file.errors }}
         </div>
       {% endif %}
+
       {% if form.receipt_file.help_text %}
         <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
           {{ form.receipt_file.help_text }}
         </p>
-      {% endif %}
-    </div>
-
-    <div style="margin-bottom:1rem;">
-      <label for="{{ form.note.id_for_label }}" style="display:block; font-weight:600; margin-bottom:.25rem;">
-        Nota (opcional)
-      </label>
-      {{ form.note }}
-      {% if form.note.errors %}
-        <div style="color:#b91c1c; font-size:.85rem; margin-top:.25rem;">
-          {{ form.note.errors }}
-        </div>
       {% endif %}
     </div>
 

@@ -464,28 +464,30 @@ class PaymentListAdminView(
             qs = qs.filter(fee__period=period)
         return qs
 
-    # 👇 NUEVO
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         u = self.request.user
 
-        is_secretary = u.groups.filter(name="Secretario").exists()
-        is_treasurer = u.groups.filter(name="Tesorero").exists()
+        groups = set(u.groups.values_list("name", flat=True))
 
-        # Título:
-        # - Secretario  -> "Pagos"
-        # - Tesorero    -> "Pagos"
-        # - Otros (Admin/Presidente, etc.) -> "Pagos (admin)"
-        ctx["page_title"] = (
-            "Pagos" if (is_secretary or is_treasurer) else "Pagos (admin)"
+        is_secretary = "Secretario" in groups
+        is_treasurer = "Tesorero" in groups
+        is_president = "Presidente" in groups
+        is_delegate = "Delegado" in groups
+
+        # Título (simple para todos)
+        ctx["page_title"] = "Pagos"
+
+        # Puede crear pagos manuales (crear pago)
+        ctx["can_create_admin_payment"] = u.has_perm("core.add_payment")
+
+        # Puede iniciar su propio pago (realizar pago)
+        # Delegado + Tesorero + Presidente
+        ctx["can_start_own_payment"] = (
+            is_delegate or is_treasurer or is_president
         )
 
-        # Botón "Realizar pago":
-        # - TODOS lo ven, menos el Secretario
-        ctx["show_pay_button"] = not is_secretary
-
         return ctx
-
 
 class MyPaymentsView(LoginRequiredMixin, ListView):
     template_name = "core/payment/payment_list_mine.html"

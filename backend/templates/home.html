@@ -1,12 +1,140 @@
 {% extends "base.html" %}
-{% block title %}Inicio{% endblock %}
-{% block content %}
-  <h1>Bienvenido</h1>
-  {% if user.is_authenticated %}
-    <p>Hola, {{ user.username }}.</p>
-  {% else %}
-    <p>Inicia sesión para acceder al panel.</p>
-  {% endif %}
-{% endblock %}
+{% load static %}
 
-{% if nav_items %}<small>Nav OK ({{ nav_items|length }})</small>{% endif %}
+{% block title %}Inicio – Junta UT{% endblock %}
+
+{% block content %}
+<div class="home-welcome">
+  <h1 class="home-welcome-title">Bienvenido a la Junta de Vecinos UT</h1>
+  <p class="home-welcome-subtitle">Vecinos de la comunidad</p>
+
+  {# Introducción general #}
+  <section class="home-intro">
+    <h2 class="home-intro-title">Tu espacio digital para gestionar todo con la Junta</h2>
+    <p class="home-intro-text">
+      Desde esta plataforma podrás mantenerte informado, realizar trámites y coordinar actividades
+      con la comunidad sin tener que ir siempre a la sede. Aquí encontrarás los avisos oficiales
+      de la Junta, podrás descargar documentos y certificados, reservar canchas o el salón de eventos,
+      reportar incidencias en el barrio y mantener tus pagos al día de forma mucho más ordenada.
+    </p>
+  </section>
+
+  {# Imagen principal #}
+  <div class="home-welcome-image-wrapper">
+    <img src="{% static 'img/foto junta de vecinos.png' %}"
+         alt="Vecinos de la comunidad"
+         class="home-welcome-image">
+  </div>
+
+  {# Diferente contenido según si está autenticado o no #}
+  {% if request.user.is_authenticated %}
+
+    {# ==== VISTA PARA VECINOS CON SESIÓN INICIADA ==== #}
+    <div class="home-shortcuts">
+      <article class="home-card">
+        <h3 class="home-card-title">Documentos</h3>
+        <p class="home-card-text">
+          Descarga certificados, actas y comunicados importantes de la Junta.
+        </p>
+        <a href="{% url 'core:documents-list' %}" class="home-card-cta">
+          Ver documentos →
+        </a>
+      </article>
+
+      <article class="home-card">
+        <h3 class="home-card-title">Avisos</h3>
+        <p class="home-card-text">
+          Entérate de las últimas novedades y anuncios para la comunidad.
+        </p>
+        <a href="{% url 'core:announcement_list' %}" class="home-card-cta">
+          Ver avisos →
+        </a>
+      </article>
+
+      <article class="home-card">
+        <h3 class="home-card-title">Reservas</h3>
+        <p class="home-card-text">
+          Reserva canchas o el salón de eventos en pocos pasos.
+        </p>
+        <a href="{% url 'core:reservation_mine' %}" class="home-card-cta">
+          Ir a reservas →
+        </a>
+      </article>
+    </div>
+
+    <section class="home-extra">
+      <h2 class="home-intro-title">Mis pagos e incidencias en un solo lugar</h2>
+      <p class="home-intro-text">
+        En la sección <strong>Mis pagos</strong> podrás revisar de forma clara la deuda pendiente
+        asociada a tus últimas reservas y a las cuotas que tengas con la Junta. Desde ahí verás
+        qué pagos están al día, cuáles siguen pendientes y qué reservas han generado un cobro.
+      </p>
+      <p class="home-intro-text">
+        Además, desde <strong>Incidencias</strong> podrás reportar problemas en tu barrio:
+        luminarias en mal estado, problemas en áreas comunes, situaciones de seguridad y más,
+        adjuntando fotos y una pequeña descripción para que la directiva pueda gestionarlas.
+      </p>
+    </section>
+
+  {% else %}
+
+    {# ==== VISTA PARA USUARIOS ANÓNIMOS (SIN CUENTA) ==== #}
+    <section class="home-intro">
+      <h2 class="home-intro-title">¿Qué podrás hacer cuando tengas tu cuenta?</h2>
+      <p class="home-intro-text">
+        Al validar tu domicilio y crearte una cuenta como vecino, tendrás acceso a un panel
+        completo para gestionar tu relación con la Junta en línea. Estas son algunas de las
+        cosas que podrás hacer:
+      </p>
+
+      <div class="home-intro-grid">
+        <div>
+          <h3 class="home-intro-item-title">Avisos y comunicados</h3>
+          <p class="home-intro-item-text">
+            Consultar los avisos oficiales, comunicados importantes y recordatorios de reuniones
+            o actividades comunitarias. Todo quedará publicado en un solo lugar para que no te
+            pierdas ninguna información relevante.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="home-intro-item-title">Mis pagos</h3>
+          <p class="home-intro-item-text">
+            Revisar la deuda pendiente asociada a tus últimas reservas y a las cuotas de la Junta,
+            subir comprobantes de transferencia y ver qué pagos están al día y cuáles siguen
+            pendientes, de forma clara y ordenada.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="home-intro-item-title">Incidencias en la comunidad</h3>
+          <p class="home-intro-item-text">
+            Reportar incidencias en tu sector, como problemas de iluminación, áreas comunes
+            deterioradas o situaciones de seguridad. Podrás describir el problema, adjuntar
+            fotografías y hacer seguimiento del estado del reporte.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="home-intro-item-title">Reservas de canchas y salón</h3>
+          <p class="home-intro-item-text">
+            Solicitar reservas de canchas deportivas o del salón de eventos, revisar la
+            disponibilidad por día y horario, y llevar el registro de tus reservas realizadas
+            sin tener que ir presencialmente a la sede.
+          </p>
+        </div>
+
+        <div>
+          <h3 class="home-intro-item-title">Documentos y certificados</h3>
+          <p class="home-intro-item-text">
+            Descargar documentos emitidos por la Junta, como actas, comunicados,
+            certificados o reglamentos internos, todo en formato digital para que puedas
+            acceder a ellos cuando los necesites.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  {% endif %}
+</div>
+{% endblock %}
