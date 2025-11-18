@@ -468,26 +468,26 @@ class PaymentListAdminView(
         ctx = super().get_context_data(**kwargs)
         u = self.request.user
 
-        is_secretary = u.groups.filter(name="Secretario").exists()
-        is_treasurer = u.groups.filter(name="Tesorero").exists()
+        groups = set(u.groups.values_list("name", flat=True))
 
-        # 🔹 Título siempre "Pagos"
+        is_secretary = "Secretario" in groups
+        is_treasurer = "Tesorero" in groups
+        is_president = "Presidente" in groups
+        is_delegate = "Delegado" in groups
+
+        # Título (simple para todos)
         ctx["page_title"] = "Pagos"
 
-        # 🔹 ¿Mostramos el botón?
-        # si quieres ocultarlo al secretario, mantenemos esta lógica:
-        ctx["show_pay_button"] = not is_secretary
+        # Puede crear pagos manuales (crear pago)
+        ctx["can_create_admin_payment"] = u.has_perm("core.add_payment")
 
-        # 🔹 A dónde apunta el botón:
-        # - si el usuario tiene permiso para crear pagos -> vista admin
-        # - si NO lo tiene (Delegado, vecino, etc.) -> "Mis pagos"
-        if u.has_perm("core.add_payment"):
-            ctx["pay_button_url"] = reverse("core:payment_create_admin")
-        else:
-            ctx["pay_button_url"] = reverse("core:my_payments")
+        # Puede iniciar su propio pago (realizar pago)
+        # Delegado + Tesorero + Presidente
+        ctx["can_start_own_payment"] = (
+            is_delegate or is_treasurer or is_president
+        )
 
         return ctx
-
 
 class MyPaymentsView(LoginRequiredMixin, ListView):
     template_name = "core/payment/payment_list_mine.html"

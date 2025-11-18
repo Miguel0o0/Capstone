@@ -898,3 +898,61 @@ a:hover { text-decoration: underline; }
   }
 }
 
+/* ===== Revisión de pagos (tesorero/presidente) ===== */
+
+.payment-review-card {
+  max-width: 900px;        /* ⬅ más ancha (subes o bajas este valor a gusto) */
+  width: 100%;             /* ⬅ que use todo el ancho disponible hasta el max */
+  margin: 2.5rem auto 3rem;
+  padding: 2rem 3rem;      /* ⬅ un poquito más de padding lateral */
+}
+
+/* Formulario de revisión */
+.payment-review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+/* Select de "Estado del pago": ovalado y más grande */
+.payment-review-form select#id_status {
+  width: 100%;
+  max-width: 320px;                /* ⬅ ancho del select */
+  padding: 0.7rem 1rem;            /* ⬅ alto del select */
+  border-radius: 999px;            /* ⬅ forma pastilla/ovalada */
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.payment-review-form select#id_status:focus {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+/* (Opcional) textarea de nota más agradable */
+.payment-review-form textarea#id_staff_note {
+  width: 100%;
+  min-height: 90px;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.payment-review-form textarea#id_staff_note:focus {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+@media (max-width: 720px) {
+  .payment-review-card {
+    max-width: 100%;
+    margin-inline: 1rem;
+    padding: 1.5rem 1.5rem;
+  }
+}

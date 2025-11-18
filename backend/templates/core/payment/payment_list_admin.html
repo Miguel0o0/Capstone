@@ -16,12 +16,25 @@
         </p>
       </div>
 
-      {% if show_pay_button %}
-        <a href="{{ pay_button_url }}" class="btn btn-primary btn-small">
-          Realizar pago
-        </a>
+      {% if can_create_admin_payment or can_start_own_payment %}
+        <div style="display:flex; gap:.75rem;">
+          {% if can_create_admin_payment %}
+            <a href="{% url 'core:payment_create_admin' %}"
+               class="btn btn-primary btn-small">
+              Crear pago
+            </a>
+          {% endif %}
+
+          {% if can_start_own_payment %}
+            <a href="{% url 'core:payment_create' %}"
+               class="btn btn-outline btn-small">
+              Realizar pago
+            </a>
+          {% endif %}
+        </div>
       {% endif %}
     </header>
+
 
     <!-- Filtro por período -->
     <section style="max-width: 520px; margin: 0 auto 1.75rem;">
@@ -132,6 +145,27 @@
                 <span style="font-size:.85rem; color:var(--color-muted);">
                   Sin comprobante cargado
                 </span>
+              {% endif %}
+
+              {# Solo quienes puedan cambiar pagos ven "Validar" #}
+              {% if perms.core.change_payment %}
+                <a href="{% url 'core:payment_review' p.pk %}" class="btn btn-primary btn-small">
+                  Validar
+                </a>
+              {% endif %}
+
+              {# Solo quienes puedan borrar pagos ven "Eliminar" #}
+              {% if perms.core.delete_payment %}
+                <form method="post"
+                      action="{% url 'core:payment_delete_admin' p.pk %}"
+                      style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit"
+                          class="btn btn-danger btn-small"
+                          onclick="return confirm('¿Seguro que deseas eliminar este pago?');">
+                    Eliminar
+                  </button>
+                </form>
               {% endif %}
             </div>
           </article>

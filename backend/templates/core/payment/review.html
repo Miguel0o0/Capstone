@@ -1,54 +1,68 @@
 {% extends "base.html" %}
 
-{% block title %}Revisar pago #{{ object.id }}{% endblock %}
+{% block title %}Revisar pago #{{ object.id }} – Junta UT{% endblock %}
 
 {% block content %}
-<div class="card" style="max-width:640px; margin:2rem auto;">
-  <h1 style="margin-bottom:.5rem;">Revisar pago #{{ object.id }}</h1>
-  <p style="color:#6b7280; font-size:.9rem; margin-bottom:1rem;">
-    Vecino: {{ object.resident|default:"—" }}<br>
-    Descripción: {{ object.description }}<br>
-    Monto: {{ object.amount }}<br>
-    {% if object.receipt_file %}
-      Comprobante:
-      <a href="{{ object.receipt_file.url }}" target="_blank" rel="noopener">
-        Ver comprobante
-      </a>
-    {% else %}
-      Comprobante: <span class="text-muted">No adjuntado</span>
-    {% endif %}
-  </p>
+<section class="payments-page">
+  <div class="card payment-review-card">
+    <h1 class="page-title" style="margin-bottom:.75rem;">
+      Revisar pago #{{ object.id }}
+    </h1>
 
-  <form method="post" class="grid" style="gap:1rem;">
-    {% csrf_token %}
-    <div>
-      <label for="{{ form.status.id_for_label }}" style="display:block; margin-bottom:.25rem; font-weight:600;">
-        {{ form.status.label }}
-      </label>
-      {{ form.status }}
-      {% if form.status.errors %}
-        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.status.errors }}
-        </div>
+    <p style="color:#6b7280; font-size:.9rem; margin-bottom:1rem;">
+      Vecino:
+      {{ object.resident.get_full_name|default:object.resident.username }}<br>
+      Descripción: {{ object.description|default:"(sin descripción)" }}<br>
+      Monto: ${{ object.amount|floatformat:0 }}<br>
+      {% if object.receipt_file %}
+        Comprobante:
+        <a href="{{ object.receipt_file.url }}" target="_blank" rel="noopener">
+          Ver comprobante
+        </a>
+      {% else %}
+        Comprobante: <span class="text-muted">No adjuntado</span>
       {% endif %}
-    </div>
+    </p>
 
-    <div>
-      <label for="{{ form.staff_note.id_for_label }}" style="display:block; margin-bottom:.25rem; font-weight:600;">
-        {{ form.staff_note.label }}
-      </label>
-      {{ form.staff_note }}
-      {% if form.staff_note.errors %}
-        <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
-          {{ form.staff_note.errors }}
-        </div>
-      {% endif %}
-    </div>
+    <form method="post" class="payment-review-form">
+      {% csrf_token %}
 
-    <div style="display:flex; gap:.5rem; margin-top:.5rem;">
-      <button type="submit" class="btn btn-primary">Guardar cambios</button>
-      <a href="{% url 'core:payment_list_admin' %}" class="btn btn-outline">Volver</a>
-    </div>
-  </form>
-</div>
+      <div class="form-group">
+        <label for="{{ form.status.id_for_label }}"
+               style="display:block; margin-bottom:.25rem; font-weight:600;">
+          {{ form.status.label }}
+        </label>
+        {{ form.status }}
+        {% if form.status.errors %}
+          <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
+            {{ form.status.errors }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label for="{{ form.staff_note.id_for_label }}"
+               style="display:block; margin-bottom:.25rem; font-weight:600;">
+          {{ form.staff_note.label }}
+        </label>
+        {{ form.staff_note }}
+        {% if form.staff_note.errors %}
+          <div style="color:#b91c1c; font-size:.8rem; margin-top:.25rem;">
+            {{ form.staff_note.errors }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div style="margin-top:1.25rem; display:flex; gap:.75rem;">
+        <button type="submit" class="btn btn-primary btn-small">
+          Guardar cambios
+        </button>
+        <a href="{% url 'core:payment_list_admin' %}"
+           class="btn btn-outline btn-small">
+          Volver
+        </a>
+      </div>
+    </form>
+  </div>
+</section>
 {% endblock %}
