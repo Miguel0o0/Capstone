@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Login{% endblock %}
+{% block title %}Iniciar sesión | Junta UT{% endblock %}
 
 {% block content %}
-<div class="grid" style="max-width:420px;margin:auto;">
-  <div class="card">
-    <h1 class="card-title">Iniciar sesión</h1>
+<div class="auth-page">
+  <div class="auth-card">
+    <h1 class="auth-title">Iniciar sesión</h1>
 
-    {# mensajes flash (éxito / error) #}
+    {# mensajes flash #}
     {% include "includes/_messages.html" %}
 
-    <form method="post" novalidate>
+    <form method="post" novalidate class="auth-form">
       {% csrf_token %}
       {{ form.non_field_errors }}
 
       <div class="form-group">
-        <label class="label" for="id_username">Usuario o correo</label>
+        <label for="id_username">Usuario o correo</label>
         {{ form.username }}
         {% if form.username.errors %}
           <div class="text-danger">{{ form.username.errors|join:", " }}</div>
@@ -24,20 +24,22 @@
       </div>
 
       <div class="form-group">
-        <label class="label" for="id_password">Contraseña</label>
+        <label for="id_password">Contraseña</label>
         {{ form.password }}
         {% if form.password.errors %}
           <div class="text-danger">{{ form.password.errors|join:", " }}</div>
         {% endif %}
       </div>
 
-      <button class="btn btn-primary" type="submit">Entrar</button>
+      <button class="btn btn-primary auth-btn" type="submit">
+        Entrar
+      </button>
     </form>
 
-    {# Si tienes URLs de reset activadas, deja este enlace. Si no, puedes comentarlo #}
-    <p class="mt-2">
+    <div class="auth-links">
+      <a href="{% url 'core:insc_create' %}">¿No tienes cuenta? Quiero unirme</a>
       <a href="{% url 'password_reset' %}">¿Olvidaste tu contraseña?</a>
-    </p>
+    </div>
   </div>
 </div>
 {% endblock %}

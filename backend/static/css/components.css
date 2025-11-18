@@ -1,92 +1,144 @@
+/* Botones base */
 .btn {
-  display:inline-flex; align-items:center; justify-content:center;
-  gap:.5rem; font-weight:600;
-  padding:.55rem .9rem; border-radius: .6rem;
-  border:1px solid transparent; cursor:pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  font-weight: 600;
+  padding: .55rem .9rem;
+  border-radius: .6rem;
+  border: 1px solid transparent;
+  cursor: pointer;
   transition: transform .02s ease, box-shadow .2s ease;
 }
-.btn:active { transform: translateY(1px); }
-.btn-primary{
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-primary {
   background: var(--color-primary);
   color: #fff;
 }
-.btn-primary:hover{ background: var(--color-primary-600); }
-.btn-outline{
-  background:#fff; border-color: #d1d5db; color: var(--color-text);
+.btn-primary:hover {
+  background: var(--color-primary-600);
 }
-.btn-danger{ background: var(--color-danger); color:#fff; }
-
-.input, .select, .textarea{
-  width:100%; padding:.6rem .75rem;
-  border:1px solid #d1d5db; border-radius:.6rem; background:#fff;
+.btn-outline {
+  background: #fff;
+  border-color: #d1d5db;
+  color: var(--color-text);
 }
-.input:focus, .select:focus, .textarea:focus{
-  outline:none; border-color: var(--color-primary-600);
-  box-shadow: 0 0 0 3px rgba(29,78,216,.15);
+.btn-danger {
+  background: var(--color-danger);
+  color:#fff;
 }
 
+/* Botón pequeño (lo usamos en reuniones, etc.) */
+.btn-small {
+  padding: .4rem .8rem;
+  font-size: .85rem;
+  border-radius: .5rem;
+}
+
+/* Inputs genéricos */
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: .6rem .75rem;
+  border: 1px solid #d1d5db;
+  border-radius: .6rem;
+  background: #fff;
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, .15);
+}
+
+/* Tablas */
 .table {
-  width:100%; border-collapse: collapse; background:#fff; border-radius: .6rem; overflow: hidden;
+  width: 100%;
+  border-collapse: collapse;
+  background:#fff;
+  border-radius: .6rem;
+  overflow: hidden;
 }
-.table th, .table td { padding:.7rem .9rem; border-bottom:1px solid #e5e7eb; }
-.table th { text-align:left; color: var(--color-muted); font-weight:700; background:#f3f4f6; }
-.table tr:hover td { background:#f9fafb; }
+.table th,
+.table td {
+  padding: .7rem .9rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.table th {
+  text-align: left;
+  color: var(--color-muted);
+  font-weight: 700;
+  background: #f3f4f6;
+}
+.table tr:hover td {
+  background: #f9fafb;
+}
 
 /* --- NAVBAR layout (brand izq, menú centro, acciones der) --- */
 .navbar {
   display: flex;
   align-items: center;
-  gap: 1.8rem;
-  padding: 0.7rem 2.5rem;
+  gap: 2rem;
+  padding: 0.9rem 2.5rem;  /* más padding = navbar más alta */
   justify-content: flex-start;
   width: 100%;
   box-sizing: border-box;
+  background: #FABA50;
+  color: #000000;
+  box-shadow: var(--shadow);
 }
 
-/* Marca: logo + texto, pegado a la izquierda */
+/* Marca: logo + texto */
 .navbar .brand {
   display: inline-flex;
   align-items: center;
-  gap: .45rem;
+  gap: .55rem;
   text-decoration: none;
-  color: var(--color-primary);
+  color: #000000;
   font-weight: 700;
   white-space: nowrap;
 }
-
 .navbar .brand img {
-  height: 24px;
+  height: 44px;
   width: auto;
 }
+.navbar .brand span {
+  font-size: 1.2rem;
+  letter-spacing: .05em;
+}
 
-/* Menú central con más espacio entre links */
+/* Menú central */
 .navbar .nav-links {
   display: flex;
   align-items: center;
-  justify-content: center;  /* 👈 centra los items en el espacio disponible */
-  flex: 1;                  /* 👈 ocupa todo el espacio entre logo y acciones */
+  justify-content: center;
+  flex: 1;               /* ocupa espacio entre logo y acciones */
   gap: 1.6rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
-
 .navbar .nav-links li a {
   text-decoration: none;
-  color: #374151;
+  color: #000000;
   font-weight: 500;
-  padding: 0.35rem 0.8rem;
+  padding: 0.35rem 0.9rem;
   border-radius: 999px;
 }
 .navbar .nav-links li a:hover,
 .navbar .nav-links li a:focus {
-  background: #eef2ff;
-  color: #111827;
+  background: rgba(15, 23, 42, 0.18);
+  color: #000000;
 }
 
-/* Acciones (Cerrar sesión) pegadas a la derecha */
+/* Acciones (cerrar sesión) a la derecha */
 .navbar .nav-actions {
-  margin-left: auto;   /* 👈 empuja este bloque al borde derecho */
+  margin-left: auto;
   display: flex;
   align-items: center;
 }
@@ -95,13 +147,22 @@
   border-radius: 999px;
   font-size: .85rem;
 }
+.navbar .nav-actions .btn.btn-outline {
+  background: transparent;
+  border-color: #000000;
+  color: #000000;
+}
+.navbar .nav-actions .btn.btn-outline:hover {
+  background: rgba(15, 23, 42, 0.15);
+  color: #000000;
+}
 
-/* Responsive */
+/* Responsive navbar */
 @media (max-width: 768px) {
   .navbar {
     flex-wrap: wrap;
     gap: .5rem;
-    padding: 0.6rem 1rem;
+    padding: 0.6rem 1.25rem;
   }
   .navbar .nav-links {
     flex-wrap: wrap;
@@ -109,12 +170,105 @@
   }
 }
 
+/* Badge de aviso importante */
 .badge-important {
   display: inline-block;
   padding: 0.15rem 0.55rem;
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
-  background-color: #dc2626; /* rojo */
+  background-color: #dc2626;  /* rojo */
   color: #fff;
+}
+
+/* =========================
+   Reuniones (equipo de gestión)
+   ========================== */
+
+/* Contenedor de la lista de reuniones */
+.meeting-list {
+  margin-top: 1.5rem;
+}
+
+/* Tarjeta de reunión más ancha y centrada */
+.card.meeting-card {
+  width: 100% !important;
+  max-width: 1000px !important;  /* ajusta 960 / 1000 / 1100 según te guste */
+  margin: 0 auto 1.5rem auto !important;
+}
+
+/* ====== Pagos – vista del delegado / equipo de gestión ====== */
+.payment-admin-list {
+  margin-top: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); 
+  gap: 1.25rem 1.25rem;  
+}
+
+/* Cada tarjeta ocupa todo el ancho de su columna */
+.payment-admin-card {
+  width: 100%;
+  margin: 0; 
+}
+
+
+.payment-admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.payment-admin-amount {
+  text-align: right;
+  font-weight: 700;
+  font-size: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .4rem;
+}
+
+.payment-admin-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem .6rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+/* Estado pendiente en naranja */
+.payment-admin-status--pendiente {
+  background: #f97316;
+  color: #fff;
+}
+
+/* Estado pagado en verde */
+.payment-admin-status--pagado {
+  background: #16a34a;
+  color: #fff;
+}
+
+.payment-admin-meta {
+  margin-top: .75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: .8rem;
+  color: var(--color-muted);
+}
+
+.payment-admin-actions {
+  margin-top: .75rem;
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .payment-admin-list {
+    grid-template-columns: 1fr;  /* en móvil, una tarjeta por fila */
+  }
 }

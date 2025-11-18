@@ -1,63 +1,83 @@
 {% extends "base.html" %}
 {% block title %}Nueva reserva{% endblock %}
-{% block content %}
-<h1>Nueva reserva</h1>
 
-<div class="card" style="max-width:720px">
+{% block content %}
+<div class="card" style="max-width:720px; margin:2rem auto;">
   <div class="card-body">
-    <form method="post">
+    <h1 style="margin-top:0; margin-bottom:.5rem;">Nueva reserva</h1>
+    <p style="color:#6b7280; font-size:.9rem; margin-bottom:1.25rem;">
+      Elige el tipo de recurso, la cancha o salón y la fecha y hora en que deseas usarlo.
+      Por ahora la duración estándar de las reservas es de 1 hora. Si el horario está ocupado,
+      te avisaremos para que puedas escoger otro.
+    </p>
+
+    <form method="post" class="grid reservation-form" style="gap:1rem;">
       {% csrf_token %}
 
       <div class="form-row">
-        <label for="id_tipo">{{ form.tipo.label }}:</label>
+        <label for="id_tipo" style="display:block; font-weight:600; margin-bottom:.25rem;">
+          {{ form.tipo.label }}
+        </label>
         {{ form.tipo }}
-        {% if form.tipo.errors %}<div class="error">{{ form.tipo.errors }}</div>{% endif %}
-        <small class="muted">Cambia el tipo para ver solo los recursos de esa categoría.</small>
+        {% if form.tipo.errors %}
+          <div class="error">{{ form.tipo.errors }}</div>
+        {% endif %}
+        <small class="muted">
+          Cambia el tipo para ver solo los recursos de esa categoría.
+        </small>
       </div>
 
-      <script>
-        (function(){
-          const sel = document.getElementById("id_tipo");
-          if (sel) {
-            sel.addEventListener("change", function(){
-              const url = new URL(window.location.href);
-              url.searchParams.set("tipo", this.value);
-              window.location.href = url.toString();
-            });
-          }
-        })();
-      </script>
-
       <div class="form-row">
-        <label for="id_resource">{{ form.resource.label }}:</label>
+        <label for="id_resource" style="display:block; font-weight:600; margin-bottom:.25rem;">
+          {{ form.resource.label }}
+        </label>
         {{ form.resource }}
-        {% if form.resource.errors %}<div class="error">{{ form.resource.errors }}</div>{% endif %}
+        {% if form.resource.errors %}
+          <div class="error">{{ form.resource.errors }}</div>
+        {% endif %}
       </div>
 
       {# Fecha + hora (una sola fecha y una sola hora) #}
       <div class="form-row">
-        <label for="id_start_date">{{ form.start_date.label }}:</label>
+        <label for="id_start_date" style="display:block; font-weight:600; margin-bottom:.25rem;">
+          {{ form.start_date.label }}
+        </label>
         {{ form.start_date }}
-        {% if form.start_date.errors %}<div class="error">{{ form.start_date.errors }}</div>{% endif %}
+        {% if form.start_date.errors %}
+          <div class="error">{{ form.start_date.errors }}</div>
+        {% endif %}
       </div>
+
       <div class="form-row">
-        <label for="id_start_time">{{ form.start_time.label }}:</label>
+        <label for="id_start_time" style="display:block; font-weight:600; margin-bottom:.25rem;">
+          {{ form.start_time.label }}
+        </label>
         {{ form.start_time }}
-        {% if form.start_time.errors %}<div class="error">{{ form.start_time.errors }}</div>{% endif %}
+        {% if form.start_time.errors %}
+          <div class="error">{{ form.start_time.errors }}</div>
+        {% endif %}
       </div>
 
       {# Título/Notas solo para SALÓN #}
-      <div id="salon-extra" style="display:none">
+      <div id="salon-extra" style="display:none;">
         <div class="form-row">
-          <label for="id_title">Título del evento:</label>
+          <label for="id_title" style="display:block; font-weight:600; margin-bottom:.25rem;">
+            Título del evento
+          </label>
           {{ form.title }}
-          {% if form.title.errors %}<div class="error">{{ form.title.errors }}</div>{% endif %}
+          {% if form.title.errors %}
+            <div class="error">{{ form.title.errors }}</div>
+          {% endif %}
         </div>
 
         <div class="form-row">
-          <label for="id_notes">Descripción del evento:</label>
+          <label for="id_notes" style="display:block; font-weight:600; margin-bottom:.25rem;">
+            Descripción del evento
+          </label>
           {{ form.notes }}
-          {% if form.notes.errors %}<div class="error">{{ form.notes.errors }}</div>{% endif %}
+          {% if form.notes.errors %}
+            <div class="error">{{ form.notes.errors }}</div>
+          {% endif %}
         </div>
       </div>
 
@@ -65,21 +85,38 @@
         <div class="error">{{ form.non_field_errors }}</div>
       {% endif %}
 
-      <p class="muted">
-        Nota: por ahora la duración es de 1 hora. Si el horario está ocupado te avisaremos.
-        Más adelante sumamos disponibilidad en vivo y reglas por recurso.
+      <p class="muted" style="font-size:.8rem; margin-top:.25rem;">
+        Nota: por ahora la duración es de 1 hora. Más adelante agregaremos
+        disponibilidad en vivo y reglas específicas por recurso.
       </p>
 
-      <button class="btn btn-primary" type="submit">Solicitar</button>
-      {# Ajusta el nombre de la URL si en urls.py se llama distinto #}
-      <a class="btn" href="{% url 'core:reservation_mine' %}">Cancelar</a>
+      <div style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.5rem;">
+        <button class="btn btn-primary" type="submit">Solicitar</button>
+        <a class="btn btn-outline" href="{% url 'core:reservation_mine' %}">
+          Cancelar
+        </a>
+      </div>
     </form>
   </div>
 </div>
 
+{# Mantengo tus scripts tal cual, solo movidos al final #}
 <script>
   (function(){
-    const tipoSel = document.getElementById("id_tipo");
+    const sel = document.getElementById("id_tipo");
+    if (sel) {
+      sel.addEventListener("change", function(){
+        const url = new URL(window.location.href);
+        url.searchParams.set("tipo", this.value);
+        window.location.href = url.toString();
+      });
+    }
+  })();
+</script>
+
+<script>
+  (function(){
+    const tipoSel   = document.getElementById("id_tipo");
     const recursoRow = document.querySelector('label[for="id_resource"]')?.parentElement;
     const salonExtra = document.getElementById("salon-extra");
 

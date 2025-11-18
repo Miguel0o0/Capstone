@@ -1,16 +1,59 @@
 {% extends "base.html" %}
+{% block title %}Salvoconducto de mudanza{% endblock %}
+
 {% block content %}
 <h1>Salvoconducto de mudanza</h1>
 
-<p>
-  Completa los datos de tu mudanza y te mostraremos una vista previa del
-  salvoconducto. Desde ahí podrás descargar el PDF o enviarlo a tu correo.
-</p>
+<div class="docs-form-card">
+  <p class="docs-form-subtitle">
+    Completa los datos de tu mudanza y te mostraremos una vista previa del
+    salvoconducto. Desde ahí podrás descargar el PDF o enviarlo a tu correo.
+  </p>
 
-<form method="post" class="card">
-  {% csrf_token %}
-  {{ form.as_p }}
-  <button class="btn btn-primary" type="submit">Generar salvoconducto</button>
-  <a class="btn" href="{% url 'core:documents-list' %}">Volver</a>
-</form>
+  <form method="post" class="docs-form">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="form-row">
+      <label for="{{ form.nombre.id_for_label }}">Nombre completo</label>
+      {{ form.nombre }}
+      {{ form.nombre.errors }}
+    </div>
+
+    <div class="form-row">
+      <label for="{{ form.rut.id_for_label }}">RUT</label>
+      {{ form.rut }}
+      {{ form.rut.errors }}
+    </div>
+
+    <div class="form-row">
+      <label for="{{ form.domicilio_origen.id_for_label }}">Domicilio de origen</label>
+      {{ form.domicilio_origen }}
+      {{ form.domicilio_origen.errors }}
+    </div>
+
+    <div class="form-row">
+      <label for="{{ form.domicilio_destino.id_for_label }}">Domicilio de destino</label>
+      {{ form.domicilio_destino }}
+      {{ form.domicilio_destino.errors }}
+    </div>
+
+    <div class="form-row">
+      <label for="{{ form.comuna.id_for_label }}">Comuna</label>
+      {{ form.comuna }}
+      {{ form.comuna.errors }}
+    </div>
+
+    <div class="form-row">
+      <label for="{{ form.fecha_mudanza.id_for_label }}">Fecha de uso del salvoconducto</label>
+      {{ form.fecha_mudanza }}
+      {{ form.fecha_mudanza.errors }}
+    </div>
+
+    <div class="docs-form-actions">
+      <button class="btn btn-primary" type="submit">Generar salvoconducto</button>
+      <a class="btn" href="{% url 'core:documents-list' %}">Volver</a>
+    </div>
+  </form>
+</div>
 {% endblock %}

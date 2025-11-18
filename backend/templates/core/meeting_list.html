@@ -1,42 +1,56 @@
 {% extends "base.html" %}
-{% block title %}Reuniones{% endblock %}
+
+{% block title %}Reuniones – Junta UT{% endblock %}
 
 {% block content %}
-<div class="head-between">
-  <h1>Reuniones</h1>
-
-  {% if perms.core.add_meeting %}
-    <a class="btn btn-primary" href="{% url 'core:meeting_create' %}">
-      Nueva reunión
-    </a>
-  {% endif %}
-</div>
-
-<ul class="list">
-  {% for r in reuniones %}
-    <li class="card">
-      <h2 class="card-title">
-        {{ r.fecha|date:"d/m/Y H:i" }} — {{ r.tema }}
-      </h2>
-
-      <div class="card-body">
-        <p>Lugar: {{ r.lugar }}</p>
-
-        {% if perms.core.change_meeting or perms.core.delete_meeting %}
-          <p class="mt-2">
-            {% if perms.core.change_meeting %}
-              <a href="{% url 'core:meeting_update' r.pk %}">Editar</a>
-            {% endif %}
-            {% if perms.core.delete_meeting %}
-              {% if perms.core.change_meeting %} | {% endif %}
-              <a href="{% url 'core:meeting_delete' r.pk %}">Eliminar</a>
-            {% endif %}
-          </p>
-        {% endif %}
+  <section style="max-width: 1100px; margin: 2.5rem auto 0;">
+    <header class="announcement-page-header">
+      <div>
+        <h1 class="announcement-page-title">Reuniones</h1>
+        <p class="announcement-page-subtitle">
+          Aquí encontrarás las asambleas generales, reuniones extraordinarias y otros
+          encuentros programados por la directiva de la Junta.
+        </p>
       </div>
-    </li>
-  {% empty %}
-    <li class="muted">No hay reuniones registradas.</li>
-  {% endfor %}
-</ul>
+
+      {% if perms.core.add_meeting %}
+        <a href="{% url 'core:meeting_create' %}" class="btn btn-primary btn-small">
+          Nueva reunión
+        </a>
+      {% endif %}
+    </header>
+
+    {% if reuniones %}
+      <div class="meeting-list">
+        {% for reunion in reuniones %}
+          <article class="card meeting-card">
+            <p class="announcement-meta" style="margin-bottom: .4rem;">
+              Reunión programada por la directiva
+            </p>
+
+            <h2 class="announcement-card-title" style="margin-bottom: .35rem;">
+              Motivo de reunión: {{ reunion.tema }}
+            </h2>
+
+            <p class="announcement-meta">
+              Fecha: {{ reunion.fecha|date:"d/m/Y" }} ·
+              Hora: {{ reunion.fecha|date:"H:i" }} ·
+              Lugar: {{ reunion.lugar }}
+            </p>
+
+            <div style="margin-top: .75rem; display:flex; justify-content:flex-end;">
+              <a href="{% url 'core:meeting_detail' reunion.pk %}"
+                 class="announcement-link">
+                Ver detalle →
+              </a>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="announcement-empty">
+        No hay reuniones registradas por el momento.
+      </p>
+    {% endif %}
+  </section>
 {% endblock %}

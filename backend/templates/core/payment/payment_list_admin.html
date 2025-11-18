@@ -1,114 +1,146 @@
 {% extends "base.html" %}
-{% load auth_extras %}
 
-{% block title %}Pagos{% endblock %}
+{% block title %}{{ page_title }} – Junta UT{% endblock %}
 
 {% block content %}
-  <h1>Pagos</h1>
+  <section class="payments-page" style="max-width: 1100px; margin: 2.5rem auto 0;">
+    <!-- Encabezado -->
+    <header class="announcement-page-header">
+      <div>
+        <h1 class="announcement-page-title">
+          {{ page_title }}
+        </h1>
+        <p class="announcement-page-subtitle">
+          Desde aquí la directiva puede revisar los pagos asociados a cuotas y reservas
+          realizados por vecinas y vecinos de la comunidad.
+        </p>
+      </div>
 
-  <p>
-    {# Tesorero / Admin / Presidente (o quien tenga add_payment) pueden crear pagos manualmente #}
-    {% if perms.core.add_payment %}
-      <a class="btn btn-primary" href="{% url 'core:payment_create_admin' %}">
-        Crear pago
-      </a>
-    {% endif %}
+      {% if show_pay_button %}
+        <a href="{% url 'core:payment_create_admin' %}" class="btn btn-primary btn-small">
+          Realizar pago
+        </a>
+      {% endif %}
+    </header>
 
-    {# TODOS los usuarios que entran aquí pueden iniciar el pago de sus deudas #}
-    <a class="btn btn-outline" href="{% url 'core:payment_create' %}">
-      Realizar pago
-    </a>
-  </p>
+    <!-- Filtro por período -->
+    <section style="max-width: 520px; margin: 0 auto 1.75rem;">
+      <div class="card">
+        <form method="get" style="display:flex; flex-direction:column; gap:.75rem;">
+          <div>
+            <label for="id_period" style="font-size:.85rem; font-weight:600;">
+              Período (YYYY-MM)
+            </label>
+            <input
+              id="id_period"
+              type="month"
+              name="period"
+              class="input"
+              value="{{ request.GET.period }}"
+            >
+            <p style="margin:.25rem 0 0; font-size:.8rem; color:var(--color-muted);">
+              Si lo indicas, solo se mostrarán los pagos del período seleccionado.
+            </p>
+          </div>
 
-  <form method="get" class="mb-3">
-    <label for="period">Periodo: [YYYY-MM]</label>
-    <input type="text" name="period" id="period" value="{{ request.GET.period }}">
-    <button type="submit" class="btn btn-sm btn-outline">Filtrar</button>
-    <a href="{% url 'core:payment_list_admin' %}" class="btn btn-sm btn-light">Limpiar</a>
-  </form>
-
-  <ul>
-    {% for p in object_list %}
-      <li style="margin-bottom:1rem;">
-        {# Usuario y rol principal #}
-        {% with user_obj=p.resident %}
-          {% with first_group=user_obj.groups.first %}
-            <strong>{{ user_obj.username }}</strong>
-            {% if first_group %}
-              ({{ first_group.name }})
-            {% else %}
-              (Vecino)
-            {% endif %}
-          {% endwith %}
-        {% endwith %}
-
-        — 
-        {# Detalle según origen #}
-        {% if p.origin == "reservation" and p.reservation %}
-          [Reserva] #{{ p.reservation.id }}
-          – {{ p.reservation.resource.nombre }}
-          ({{ p.reservation.start_at|date:"d/m/Y H:i" }})
-        {% elif p.origin == "fee" and p.fee %}
-          [Cuota] {{ p.fee.period }}
-        {% else %}
-          [Pago]
-        {% endif %}
-
-        — ${{ p.amount }} —
-        {{ p.get_status_display }}
-
-        {% if p.paid_at %}
-          — Pagado {{ p.paid_at|date:"Y-m-d H:i" }}
-        {% endif %}
-
-        {# Info de comprobante para tesorero/presidente #}
-        <div style="margin-top:.25rem; font-size:.85rem;">
-          {% if p.receipt_file %}
-            Comprobante:
-            <a href="{{ p.receipt_file.url }}" target="_blank" rel="noopener">
-              Ver comprobante
+          <div style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.5rem;">
+            <button type="submit" class="btn btn-primary btn-small">
+              Filtrar
+            </button>
+            <a href="{% url 'core:payment_list_admin' %}" class="btn btn-outline btn-small">
+              Limpiar
             </a>
-            {% if p.receipt_uploaded_at %}
-              (subido {{ p.receipt_uploaded_at|date:"d/m/Y H:i" }})
-            {% endif %}
-          {% else %}
-            {% if p.status == "pending" %}
-              Sin comprobante cargado.
-            {% endif %}
-          {% endif %}
+          </div>
+        </form>
+      </div>
+    </section>
 
-          {% if p.receipt_note %}
-            <br>
-            <em>Nota vecino:</em> {{ p.receipt_note }}
-          {% endif %}
+    <!-- Listado de pagos -->
+    {% if payments %}
+      <div class="payment-admin-list">
+        {% for p in payments %}
+          <article class="card payment-admin-card">
+            <header class="payment-admin-header">
+              <div>
+                <p class="announcement-meta" style="margin-bottom:.25rem;">
+                  {{ p.resident.get_full_name|default:p.resident.username }}
+                  {% if p.resident.groups.all %}
+                    ·
+                    {% for g in p.resident.groups.all %}
+                      {% if not forloop.first %}, {% endif %}
+                      {{ g.name }}
+                    {% endfor %}
+                  {% endif %}
+                </p>
 
-          {% if p.staff_note %}
-            <br>
-            <em>Nota interna:</em> {{ p.staff_note }}
-          {% endif %}
-        </div>
+                <h2 class="payment-card-title" style="margin-bottom:.2rem;">
+                  {% if p.origin == 'reservation' and p.reservation %}
+                    Pago de reserva:
+                    {{ p.reservation.resource.nombre }}
+                  {% elif p.fee %}
+                    Pago de cuota: {{ p.fee.period }}
+                  {% else %}
+                    Pago registrado
+                  {% endif %}
+                </h2>
+              </div>
 
-        {# Solo quien tenga permisos de edición ve los botones de edición/borrado #}
-        <div style="margin-top:.25rem;">
-          {% if perms.core.change_payment %}
-            — <a href="{% url 'core:payment_update_admin' p.pk %}">Revisar pago</a>
-          {% endif %}
+              <div class="payment-admin-amount">
+                <span>${{ p.amount|floatformat:0 }}</span>
 
-          {% if perms.core.delete_payment %}
-            <form method="post"
-                   action="{% url 'core:payment_delete_admin' p.pk %}"
-                   style="display:inline;">
-              {% csrf_token %}
-              <button type="submit"
-                      onclick="return confirm('¿Seguro que deseas borrar este pago?');">
-                Borrar
-              </button>
-            </form>
-          {% endif %}
-        </div>
-      </li>
-    {% empty %}
-      <li>No hay pagos registrados para este período.</li>
-    {% endfor %}
-  </ul>
+                {% comment %}
+                  Mapear estado del pago a la pill de color:
+                  asumimos que los valores del modelo son:
+                  'pending', 'pending_review', 'paid', 'cancelled', etc.
+                {% endcomment %}
+                {% if p.status == 'paid' %}
+                  <span class="payment-admin-status payment-admin-status--pagado">
+                    Pagado
+                  </span>
+                {% elif p.status == 'pending' or p.status == 'pending_review' %}
+                  <span class="payment-admin-status payment-admin-status--pendiente">
+                    Pendiente
+                  </span>
+                {% elif p.status == 'cancelled' %}
+                  <span class="payment-admin-status payment-admin-status--pendiente">
+                    Anulado
+                  </span>
+                {% else %}
+                  <span class="payment-admin-status payment-admin-status--pendiente">
+                    {{ p.get_status_display }}
+                  </span>
+                {% endif %}
+              </div>
+            </header>
+
+            <div class="payment-admin-meta">
+              <span>Creado: {{ p.created_at|date:"d/m/Y H:i" }}</span>
+              {% if p.paid_at %}
+                <span>Pagado: {{ p.paid_at|date:"d/m/Y H:i" }}</span>
+              {% endif %}
+              {% if p.reservation %}
+                <span>Reserva: {{ p.reservation.start_at|date:"d/m/Y H:i" }}</span>
+              {% endif %}
+            </div>
+
+            <div class="payment-admin-actions">
+              {% if p.receipt_file %}
+                <a href="{{ p.receipt_file.url }}" target="_blank" class="btn btn-outline btn-small">
+                  Ver comprobante
+                </a>
+              {% else %}
+                <span style="font-size:.85rem; color:var(--color-muted);">
+                  Sin comprobante cargado
+                </span>
+              {% endif %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="announcement-empty" style="margin-top:1.5rem;">
+        No hay pagos registrados para el período seleccionado.
+      </p>
+    {% endif %}
+  </section>
 {% endblock %}

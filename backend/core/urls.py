@@ -41,6 +41,11 @@ urlpatterns = [
         name="announcement_edit",
     ),
     path(
+    "avisos/<int:pk>/editar/",
+    views.AnnouncementUpdateView.as_view(),
+    name="announcement_update",
+    ),  
+    path(
         "avisos/<int:pk>/borrar/",
         views.AnnouncementDeleteView.as_view(),
         name="announcement_delete",
