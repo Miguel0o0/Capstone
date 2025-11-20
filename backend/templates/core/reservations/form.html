@@ -52,7 +52,26 @@
         <label for="id_start_time" style="display:block; font-weight:600; margin-bottom:.25rem;">
           {{ form.start_time.label }}
         </label>
-        {{ form.start_time }}
+
+        {# Select de horas, marcando como deshabilitadas las ocupadas #}
+        {% with busy=form.busy_hours %}
+          <select name="{{ form.start_time.html_name }}"
+                  id="{{ form.start_time.id_for_label }}"
+                  class="input">
+            {% for value, label in form.fields.start_time.choices %}
+              {% if value in busy %}
+                <option value="{{ value }}" disabled>
+                  {{ label }} (ocupado)
+                </option>
+              {% else %}
+                <option value="{{ value }}" {% if form.start_time.value == value %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        {% endwith %}
+
         {% if form.start_time.errors %}
           <div class="error">{{ form.start_time.errors }}</div>
         {% endif %}
@@ -84,11 +103,6 @@
       {% if form.non_field_errors %}
         <div class="error">{{ form.non_field_errors }}</div>
       {% endif %}
-
-      <p class="muted" style="font-size:.8rem; margin-top:.25rem;">
-        Nota: por ahora la duración es de 1 hora. Más adelante agregaremos
-        disponibilidad en vivo y reglas específicas por recurso.
-      </p>
 
       <div style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.5rem;">
         <button class="btn btn-primary" type="submit">Solicitar</button>
@@ -129,4 +143,40 @@
     if (tipoSel) tipoSel.addEventListener("change", toggleByTipo);
   })();
 </script>
+
+<script>
+  (function() {
+    const tipoSel     = document.getElementById("id_tipo");
+    const resourceSel = document.getElementById("id_resource");
+    const dateInput   = document.getElementById("id_start_date");
+
+    function reloadWithFilters() {
+      const url = new URL(window.location.href);
+
+      if (tipoSel) {
+        url.searchParams.set("tipo", tipoSel.value);
+      }
+      if (resourceSel && resourceSel.value) {
+        url.searchParams.set("resource", resourceSel.value);
+      } else {
+        url.searchParams.delete("resource");
+      }
+      if (dateInput && dateInput.value) {
+        url.searchParams.set("start_date", dateInput.value);
+      } else {
+        url.searchParams.delete("start_date");
+      }
+
+      window.location.href = url.toString();
+    }
+
+    if (resourceSel) {
+      resourceSel.addEventListener("change", reloadWithFilters);
+    }
+    if (dateInput) {
+      dateInput.addEventListener("change", reloadWithFilters);
+    }
+  })();
+</script>
+
 {% endblock %}

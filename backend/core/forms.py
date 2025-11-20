@@ -1,8 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dtime
 
 from django import forms
+from django.contrib.auth.forms import PasswordResetForm, SetPasswordForm,AuthenticationForm
 from django.core.exceptions import ValidationError
 from django.db.models import Q
+from django.contrib.auth import get_user_model
 
 from .models import (
     Announcement,
@@ -216,7 +218,6 @@ class DocumentForm(forms.ModelForm):
         model = Document
         fields = ["titulo", "descripcion", "categoria", "visibilidad", "archivo"]
 
-
 # -------------------------------------------------
 # INCIDENCIAS
 # -------------------------------------------------
@@ -281,19 +282,21 @@ class ReservationForm(forms.ModelForm):
     ]
     tipo = forms.ChoiceField(choices=TIPO_CHOICES, label="¿Qué deseas reservar?")
 
-    # Campos extra: fecha y hora separadas (más simple para el vecino)
+    # Campos extra: fecha y hora separadas
     start_date = forms.DateField(
         label="Fecha", widget=forms.DateInput(attrs={"type": "date"})
     )
-    start_time = forms.TimeField(
-        label="Hora", widget=forms.TimeInput(attrs={"type": "time"})
+    # 👇 AHORA ES UN SELECT DE HORAS
+    start_time = forms.ChoiceField(
+        label="Hora",
+        choices=[],              # se rellenan en __init__
+        widget=forms.Select,
     )
 
     class Meta:
         model = Reservation
         fields = ["tipo", "resource", "title", "start_date", "start_time", "notes"]
         widgets = {
-            # start_at/end_at del modelo NO van en el form; los construimos en clean()
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
         labels = {
@@ -303,16 +306,11 @@ class ReservationForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        # Si pasas request desde la vista, la usamos para leer ?tipo=...
+        # Si pasas request desde la vista, la usamos para leer ?tipo=..., ?resource=..., ?start_date=...
         self.request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
 
-        # defaults de fecha/hora
-        now_dt = datetime.now().replace(second=0, microsecond=0)
-        self.fields["start_date"].initial = now_dt.date()
-        self.fields["start_time"].initial = now_dt.time()
-
-        # detectar tipo seleccionado (POST > GET > initial > primera opción)
+        # --- Tipo seleccionado ---
         if self.data.get("tipo"):
             selected_tipo = self.data.get("tipo")
         elif self.request and self.request.GET.get("tipo"):
@@ -321,11 +319,36 @@ class ReservationForm(forms.ModelForm):
             selected_tipo = self.initial.get("tipo") or self.TIPO_CHOICES[0][0]
         self.fields["tipo"].initial = selected_tipo
 
-        # queryset base de recursos activos
+        # --- Fecha seleccionada (para disponibilidad) ---
+        selected_date = None
+        raw_date = None
+
+        if self.is_bound:
+            raw_date = self.data.get("start_date") or self.initial.get("start_date")
+        elif self.request and self.request.GET.get("start_date"):
+            raw_date = self.request.GET.get("start_date")
+        else:
+            raw_date = self.initial.get("start_date")
+
+        if isinstance(raw_date, datetime):
+            selected_date = raw_date.date()
+        elif hasattr(raw_date, "year"):
+            selected_date = raw_date
+        elif raw_date:
+            try:
+                selected_date = datetime.strptime(str(raw_date), "%Y-%m-%d").date()
+            except Exception:
+                selected_date = None
+
+        # Si no hay fecha aún, proponemos hoy
+        if not selected_date:
+            selected_date = datetime.now().date()
+        self.fields["start_date"].initial = selected_date
+
+        # --- Recursos activos filtrados por tipo ---
         base_qs = Resource.objects.filter(activo=True).order_by("nombre")
 
         if selected_tipo == "salon":
-            # FILTRA salón y OCULTA el combo de resource
             salon_qs = base_qs.filter(
                 Q(nombre__icontains="salon") | Q(nombre__icontains="salón")
             )
@@ -336,7 +359,6 @@ class ReservationForm(forms.ModelForm):
             if salon:
                 self.fields["resource"].initial = salon.pk
 
-            # Para salón, título/notas NO obligatorias aquí (se validan en clean())
             self.fields["title"].required = False
             self.fields["notes"].required = False
 
@@ -347,7 +369,6 @@ class ReservationForm(forms.ModelForm):
             self.fields["resource"].queryset = canchas_qs
             self.fields["resource"].empty_label = "— Selecciona una cancha —"
             self.fields["resource"].label = "Cancha de fútbol"
-
             self.fields["title"].required = False
             self.fields["notes"].required = False
 
@@ -358,7 +379,6 @@ class ReservationForm(forms.ModelForm):
             self.fields["resource"].queryset = canchas_qs
             self.fields["resource"].empty_label = "— Selecciona una cancha —"
             self.fields["resource"].label = "Cancha de básquetbol"
-
             self.fields["title"].required = False
             self.fields["notes"].required = False
 
@@ -367,21 +387,67 @@ class ReservationForm(forms.ModelForm):
             self.fields["resource"].queryset = canchas_qs
             self.fields["resource"].empty_label = "— Selecciona una cancha —"
             self.fields["resource"].label = "Cancha de pádel"
-
             self.fields["title"].required = False
             self.fields["notes"].required = False
 
         else:
-            # fallback: cualquier recurso que no sea salón
             canchas_qs = base_qs.exclude(
                 Q(nombre__icontains="salon") | Q(nombre__icontains="salón")
             )
             self.fields["resource"].queryset = canchas_qs
             self.fields["resource"].empty_label = "— Selecciona una cancha —"
             self.fields["resource"].label = "Cancha número"
-
             self.fields["title"].required = False
             self.fields["notes"].required = False
+
+        # --- Recurso seleccionado (para disponibilidad) ---
+        selected_resource_id = None
+        if self.is_bound:
+            selected_resource_id = (
+                self.data.get("resource") or self.initial.get("resource")
+            )
+        else:
+            if self.request and self.request.GET.get("resource"):
+                selected_resource_id = self.request.GET.get("resource")
+            else:
+                selected_resource_id = self.initial.get("resource")
+                    # Marcar el recurso seleccionado como initial,
+        # para que el <select> lo muestre después de recargar.
+        if selected_resource_id:
+            self.fields["resource"].initial = selected_resource_id
+
+
+        # --- Calcular horas ocupadas para ese recurso + fecha ---
+        busy = []
+        if selected_resource_id and selected_date:
+            reservas = Reservation.objects.filter(
+                resource_id=selected_resource_id,
+                status__in=[
+                    Reservation.Status.PENDING,
+                    Reservation.Status.APPROVED,
+                ],
+                start_at__date=selected_date,
+            )
+            busy = [f"{r.start_at.hour:02d}:00" for r in reservas]
+
+        self.busy_hours = busy  # lo usamos en el template
+
+        # --- Construir choices de hora: de 10:00 a 23:00 ---
+        hour_choices = []
+        for h in range(10, 24):
+            label = f"{h:02d}:00"
+            hour_choices.append((label, label))
+        self.fields["start_time"].choices = hour_choices
+
+        # Hora por defecto: primera hora libre
+        if not self.is_bound:
+            initial_time = None
+            for value, _label in hour_choices:
+                if value not in busy:
+                    initial_time = value
+                    break
+            if initial_time:
+                self.fields["start_time"].initial = initial_time
 
     def clean(self):
         cleaned = super().clean()
@@ -390,24 +456,26 @@ class ReservationForm(forms.ModelForm):
         title = (cleaned.get("title") or "").strip()
         notes = (cleaned.get("notes") or "").strip()
 
-        # Combinar fecha + hora -> start_at / end_at (1 hora por defecto)
+        # Combinar fecha + hora -> start_at / end_at (1 hora)
         start_date = cleaned.get("start_date")
-        start_time = cleaned.get("start_time")
-        if start_date and start_time:
-            start_dt = datetime.combine(start_date, start_time)
+        start_time_str = cleaned.get("start_time")
+
+        if start_date and start_time_str:
+            try:
+                h, m = map(int, str(start_time_str).split(":"))
+            except ValueError:
+                raise ValidationError("Hora de reserva inválida.")
+            start_dt = datetime.combine(start_date, dtime(hour=h, minute=m))
             end_dt = start_dt + timedelta(hours=1)
 
-            # Guardamos en cleaned
             cleaned["start_at"] = start_dt
             cleaned["end_at"] = end_dt
-
-            # Y también en la instancia, para que Reservation.clean() funcione bien
             self.instance.start_at = start_dt
             self.instance.end_at = end_dt
         else:
             raise ValidationError("Debes indicar fecha y hora de la reserva.")
 
-        # Si es salón, exigimos título y descripción mínima
+        # Reglas especiales para salón
         if tipo == "salon":
             if len(title) < 3:
                 self.add_error("title", "Indica un título corto del evento.")
@@ -417,7 +485,6 @@ class ReservationForm(forms.ModelForm):
                     "Describe brevemente el tipo de evento (mín. 10 caracteres).",
                 )
 
-            # Si ocultamos resource y no llegó, auto-asignar el primer salón
             if not resource:
                 salon = (
                     Resource.objects.filter(activo=True)
@@ -431,11 +498,9 @@ class ReservationForm(forms.ModelForm):
                 self.instance.resource = resource
 
         else:
-            # Para canchas, si hay resource lo seteamos en la instancia
             if resource:
                 self.instance.resource = resource
 
-            # Si el vecino no escribió título, generamos uno automático
             if not title:
                 if resource:
                     auto_title = f"Uso {resource.nombre}"
@@ -444,10 +509,9 @@ class ReservationForm(forms.ModelForm):
                 cleaned["title"] = auto_title
                 self.instance.title = auto_title
             else:
-                # Si sí escribió título, lo guardamos en la instancia
                 self.instance.title = title
 
-        # Validar solape (disponibilidad real)
+        # Validar solape (doble check, por si acaso)
         start = cleaned.get("start_at")
         end = cleaned.get("end_at")
         resource = cleaned.get("resource") or self.instance.resource
@@ -474,9 +538,10 @@ class ReservationForm(forms.ModelForm):
         instance = super().save(commit=False)
 
         start_date = self.cleaned_data.get("start_date")
-        start_time = self.cleaned_data.get("start_time")
-        if start_date and start_time:
-            start_dt = datetime.combine(start_date, start_time)
+        start_time_str = self.cleaned_data.get("start_time")
+        if start_date and start_time_str:
+            h, m = map(int, str(start_time_str).split(":"))
+            start_dt = datetime.combine(start_date, dtime(hour=h, minute=m))
             instance.start_at = start_dt
             instance.end_at = start_dt + timedelta(hours=1)
 
@@ -484,7 +549,6 @@ class ReservationForm(forms.ModelForm):
             instance.save()
 
         return instance
-
 
 class ReservationManageForm(forms.ModelForm):
     class Meta:
@@ -575,3 +639,61 @@ class InscriptionManageForm(forms.ModelForm):
             "note": forms.Textarea(attrs={"rows": 4}),
         }
 
+User = get_user_model()
+
+
+class JuntaPasswordResetForm(PasswordResetForm):
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if not User.objects.filter(email__iexact=email, is_active=True).exists():
+            raise forms.ValidationError(
+                "No existe ninguna cuenta registrada con este correo."
+            )
+        return email
+
+
+class JuntaSetPasswordForm(SetPasswordForm):
+    """
+    Formulario para definir nueva contraseña con mensajes en español.
+    """
+    error_messages = {
+        **SetPasswordForm.error_messages,
+        "password_mismatch": "Las dos contraseñas no coinciden.",
+    }
+
+class JuntaAuthenticationForm(AuthenticationForm):
+    """
+    Formulario de login con mensajes de error en español.
+    """
+    error_messages = {
+        **AuthenticationForm.error_messages,
+        "invalid_login": (
+            "Usuario o contraseña incorrectos. "
+            "Por favor, verifica tus datos e inténtalo nuevamente."
+        ),
+        "inactive": "Esta cuenta está desactivada.",
+    }
+
+
+class JuntaPasswordResetForm(PasswordResetForm):
+    """
+    Formulario de 'olvidé mi contraseña' con validación
+    de que el correo exista.
+    """
+    def clean_email(self):
+        email = self.cleaned_data.get("email")
+        if not User.objects.filter(email__iexact=email, is_active=True).exists():
+            raise forms.ValidationError(
+                "No existe ninguna cuenta registrada con este correo."
+            )
+        return email
+
+
+class JuntaSetPasswordForm(SetPasswordForm):
+    """
+    Formulario para definir nueva contraseña con mensajes en español.
+    """
+    error_messages = {
+        **SetPasswordForm.error_messages,
+        "password_mismatch": "Las dos contraseñas no coinciden.",
+    }
