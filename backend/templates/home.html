@@ -24,9 +24,11 @@
     <h2 class="home-intro-title">Tu espacio digital para gestionar todo con la Junta</h2>
     <p class="home-intro-text">
       Desde esta plataforma podrás mantenerte informado, realizar trámites y coordinar actividades
-      con la comunidad sin tener que ir siempre a la sede. Aquí encontrarás los avisos oficiales
-      de la Junta, podrás descargar documentos y certificados, reservar canchas o el salón de eventos,
-      reportar incidencias en el barrio y mantener tus pagos al día de forma mucho más ordenada.
+      con la comunidad sin tener que ir a la sede. 
+
+      Aquí encontrarás los avisos oficiales
+      de la Junta, podrás descargar documentos y certificados, reservar establecimientos,
+      reportar incidencias en el barrio y mantener al día tus pagos de forma mucho más ordenada.
     </p>
   </section>
 
@@ -41,11 +43,12 @@
   {% if not request.user.is_authenticated %}
     <section class="home-map-section">
       <div class="home-map-card">
-        <h2>¿Estás dentro del área de la Junta?</h2>
+        <h2>¿Estás dentro del área?</h2>
+        
         <p class="home-map-text">
           Este mapa muestra el sector cubierto por la Junta de Vecinos UT. 
-          Si tu domicilio está dentro de esta área, puedes registrarte como vecino 
-          y usar todos los servicios de la plataforma.
+          Si tu domicilio está dentro del área, puedes registrarte como vecino 
+          y usar los servicios de la plataforma.
         </p>
 
         <div id="junta-map"></div>
@@ -111,11 +114,10 @@
 
     {# ==== VISTA PARA USUARIOS ANÓNIMOS (SIN CUENTA) ==== #}
     <section class="home-intro">
-      <h2 class="home-intro-title">¿Qué podrás hacer cuando tengas tu cuenta?</h2>
+      <h2 class="home-intro-title">¿Qué podrás hacer con tu cuenta?</h2>
       <p class="home-intro-text">
-        Al validar tu domicilio y crearte una cuenta como vecino, tendrás acceso a un panel
-        completo para gestionar tu relación con la Junta en línea. Estas son algunas de las
-        cosas que podrás hacer:
+        Al validar tu domicilio y crear una cuenta como vecino, tendrás acceso a un panel
+        completo para gestionar tus tramites en línea.
       </p>
 
       <div class="home-intro-grid">
@@ -131,8 +133,8 @@
         <div>
           <h3 class="home-intro-item-title">Mis pagos</h3>
           <p class="home-intro-item-text">
-            Revisar la deuda pendiente asociada a tus últimas reservas y a las cuotas de la Junta,
-            subir comprobantes de transferencia y ver qué pagos están al día y cuáles siguen
+            Revisar las cuotas de la Junta,
+            subir comprobantes de transferencia y ver los pagos al día y cuáles siguen
             pendientes, de forma clara y ordenada.
           </p>
         </div>
@@ -140,27 +142,24 @@
         <div>
           <h3 class="home-intro-item-title">Incidencias en la comunidad</h3>
           <p class="home-intro-item-text">
-            Reportar incidencias en tu sector, como problemas de iluminación, áreas comunes
-            deterioradas o situaciones de seguridad. Podrás describir el problema, adjuntar
-            fotografías y hacer seguimiento del estado del reporte.
+            Reportar incidencias en tu sector: Problemas de iluminación, áreas comunes
+            deterioradas o situaciones de seguridad. Ademas podras hacer seguimiento de tus reportes.
           </p>
         </div>
 
         <div>
           <h3 class="home-intro-item-title">Reservas de canchas y salón</h3>
           <p class="home-intro-item-text">
-            Solicitar reservas de canchas deportivas o del salón de eventos, revisar la
-            disponibilidad por día y horario, y llevar el registro de tus reservas realizadas
-            sin tener que ir presencialmente a la sede.
+            Solicitar reservas de canchas deportivas o salón de eventos, revisar la
+            disponibilidad y llevar el registro de tus reservas realizadas.
           </p>
         </div>
 
         <div>
           <h3 class="home-intro-item-title">Documentos y certificados</h3>
           <p class="home-intro-item-text">
-            Descargar documentos emitidos por la Junta, como actas, comunicados,
-            certificados o reglamentos internos, todo en formato digital para que puedas
-            acceder a ellos cuando los necesites.
+            Descarga documentos emitidos por la Junta, como actas,
+            certificados o reglamentos internos.
           </p>
         </div>
       </div>

@@ -569,6 +569,18 @@ class ReservationManageForm(forms.ModelForm):
         self.fields["start_at"].input_formats = [_DT_FMT]
         self.fields["end_at"].input_formats = [_DT_FMT]
 
+class ReservationCancelForm(forms.Form):
+    reason = forms.CharField(
+        label="Motivo de la cancelación",
+        required=True,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": "Ej: No podré asistir, cambio de planes, etc.",
+            }
+        ),
+        max_length=500,
+    )
 
 # --------------------------------------------------
 # INSCRIPCIONES – formulario público (anónimo)
