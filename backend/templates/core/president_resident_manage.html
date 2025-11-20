@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Gestionar vecino | Junta UT{% endblock %}
+
+{% block content %}
+<div class="head-between" style="margin-bottom: 1.5rem;">
+  <div>
+    <h1>Gestionar vecino</h1>
+    <p class="muted" style="max-width: 640px;">
+      Desde aquí puedes cambiar el estado de la cuenta de este vecino y enviarle
+      un mensaje explicando la decisión.
+    </p>
+  </div>
+  <div>
+    <a href="{% url 'core:president_residents' %}" class="btn btn-outline-secondary">
+      Volver a la lista
+    </a>
+  </div>
+</div>
+
+<div class="card resident-manage-card">
+  <div class="card-body">
+    <h2 class="h5 mb-4">{{ resident.nombre }}</h2>
+
+    <div class="resident-info-list mb-4">
+      <p>
+        <span class="resident-info-label">Rol en la junta:</span>
+        <span class="resident-info-value">
+          {{ resident.get_role_display }}
+        </span>
+      </p>
+
+      <p>
+        <span class="resident-info-label">Email:</span>
+        <span class="resident-info-value">
+          {% if resident.email %}
+            {{ resident.email }}
+          {% else %}
+            <span class="text-muted">Sin correo registrado</span>
+          {% endif %}
+        </span>
+      </p>
+
+      <p>
+        <span class="resident-info-label">Dirección:</span>
+        <span class="resident-info-value">
+          {{ resident.direccion|default:"—" }}
+        </span>
+      </p>
+
+      <p>
+        <span class="resident-info-label">Estado actual:</span>
+        <span class="resident-info-value">
+          {% if resident.activo %}
+            <span class="badge bg-success">Activo</span>
+          {% else %}
+            <span class="badge bg-secondary">Inactivo</span>
+          {% endif %}
+        </span>
+      </p>
+    </div>
+
+    <hr class="mb-4">
+
+    <form method="post" class="resident-manage-form">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      <div class="resident-actions mb-3">
+        <div class="resident-actions-left">
+          <label for="{{ form.action.id_for_label }}" class="resident-info-label mb-1">
+            Acción a realizar
+          </label>
+          {{ form.action }}
+        </div>
+
+        <div class="resident-actions-right">
+          <label for="{{ form.message.id_for_label }}" class="resident-info-label mb-1">
+            Mensaje para el vecino (opcional)
+          </label>
+          {{ form.message }}
+          <div class="form-text">
+            Este mensaje se enviará por correo junto con la acción aplicada.
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="resident-action-btn w-100">
+        Aplicar acción y enviar correo
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

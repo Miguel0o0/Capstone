@@ -101,12 +101,6 @@ DATABASES = {
     }
 }
 
-# Debug opcional para verificar (lo pueden borrar después)
-print("DEBUG DB_NAME:", os.getenv("DB_NAME"))
-print("DEBUG DB_USER:", os.getenv("DB_USER"))
-print("DEBUG DB_HOST:", os.getenv("DB_HOST"))
-print("DEBUG DB_PORT:", os.getenv("DB_PORT"))
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators

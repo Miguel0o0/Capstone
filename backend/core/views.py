@@ -2,6 +2,7 @@
 import os
 from io import BytesIO
 
+from django.views import View
 from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_exempt
 
@@ -16,7 +17,7 @@ from django.contrib.auth.mixins import (
 from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect, render, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -738,37 +739,166 @@ class PresidentResidentsListView(
         return is_president and super().has_permission()
 
 
-class PresidentResidentToggleActiveView(
+class PresidentResidentManageView(
     NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, View
 ):
     permission_required = "core.change_resident"
     raise_exception = True
+    template_name = "core/president_resident_manage.html"
+
+    def _get_resident(self, pk):
+        return Resident.objects.filter(pk=pk).select_related("user").first()
 
     def handle_no_permission(self):
         messages.error(
-            self.request, "No tienes permiso para cambiar el estado de vecinos."
+            self.request, "No tienes permiso para gestionar vecinos."
         )
         return super().handle_no_permission()
 
-    def post(self, request, pk):
-        vecino = Resident.objects.filter(pk=pk).first()
+    def get(self, request, pk):
+        vecino = self._get_resident(pk)
         if vecino is None:
             messages.error(request, "El vecino solicitado no existe.")
             return redirect("core:president_residents")
 
-        try:
-            vecino.activo = not vecino.activo
+        # acción inicial sugerida según si está activo o no
+        initial_action = "deactivate" if vecino.activo else "activate"
+        form = PresidentResidentManageForm(initial={"action": initial_action})
+
+        context = {
+            "resident": vecino,
+            "form": form,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, pk):
+        vecino = self._get_resident(pk)
+        if vecino is None:
+            messages.error(request, "El vecino solicitado no existe.")
+            return redirect("core:president_residents")
+
+        form = PresidentResidentManageForm(request.POST)
+        if not form.is_valid():
+            messages.error(request, "Revisa los datos del formulario.")
+            return render(
+                request, self.template_name, {"resident": vecino, "form": form}
+            )
+
+        action = form.cleaned_data["action"]
+        message = (form.cleaned_data.get("message") or "").strip()
+
+        # Email del vecino
+        email = vecino.email or getattr(getattr(vecino, "user", None), "email", None)
+
+        # --- Aplicar acción en la BD ---
+        decision_label = ""
+        accion_humana = ""
+
+        if action == "deactivate":
+            vecino.activo = False
             vecino.save(update_fields=["activo"])
-            messages.success(
-                request,
-                f"Vecino «{vecino.nombre}» "
-                f"{'activado' if vecino.activo else 'desactivado'} correctamente.",
+            if vecino.user:
+                vecino.user.is_active = False
+                vecino.user.save(update_fields=["is_active"])
+            decision_label = "desactivada (dada de baja)"
+            accion_humana = "dar de baja tu cuenta"
+
+        elif action == "activate":
+            vecino.activo = True
+            vecino.save(update_fields=["activo"])
+            if vecino.user:
+                vecino.user.is_active = True
+                vecino.user.save(update_fields=["is_active"])
+            decision_label = "activada"
+            accion_humana = "activar tu cuenta"
+
+        elif action == "delete":
+            # Soft delete: desactivamos la cuenta
+            vecino.activo = False
+            vecino.save(update_fields=["activo"])
+            if vecino.user:
+                vecino.user.is_active = False
+                vecino.user.save(update_fields=["is_active"])
+            decision_label = "eliminada"
+            accion_humana = "eliminar tu cuenta"
+
+        else:
+            messages.error(request, "Acción no reconocida.")
+            return redirect("core:president_residents")
+
+        # --- Enviar correo al vecino (si tiene email) ---
+        if email:
+            subject = "Gestión de tu cuenta – Junta de Vecinos UT"
+            cuerpo = (
+                f"Hola {vecino.nombre},\n\n"
+                "Te informamos que la directiva de la Junta de Vecinos UT ha realizado "
+                f"la siguiente gestión sobre tu cuenta: {accion_humana}.\n\n"
             )
-        except Exception:
-            messages.error(
-                request, "No se pudo actualizar el estado. Intenta nuevamente."
+
+            if message:
+                cuerpo += f"Mensaje del presidente:\n{message}\n\n"
+
+            cuerpo += (
+                "Si tienes dudas o crees que se trata de un error, por favor "
+                "contacta a la directiva respondiendo este correo.\n\n"
+                "Saludos,\n"
+                "Junta de Vecinos UT\n"
             )
+
+            try:
+                email_msg = EmailMessage(
+                    subject=subject,
+                    body=cuerpo,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    to=[email],
+                )
+                email_msg.send(fail_silently=False)
+            except Exception as e:
+                print("ERROR enviando correo de gestión de vecino:", e)
+                messages.warning(
+                    request,
+                    "La acción se aplicó, pero hubo un problema al enviar el correo al vecino.",
+                )
+
+        messages.success(
+            request,
+            f"Acción aplicada sobre «{vecino.nombre}»: cuenta {decision_label}.",
+        )
         return redirect("core:president_residents")
+
+
+# ------------------------------------------------
+# 👑 Presidencia — Gestión avanzada de vecinos
+# ------------------------------------------------
+
+class PresidentResidentManageForm(forms.Form):
+    ACTION_CHOICES = (
+        ("deactivate", "Dar de baja"),
+        ("activate", "Activar cuenta"),
+        ("delete", "Eliminar cuenta"),
+    )
+
+    action = forms.ChoiceField(
+        choices=ACTION_CHOICES,
+        widget=forms.Select(
+            attrs={
+                "class": "resident-select",
+            }
+        ),
+        label="Acción a realizar",
+    )
+
+    message = forms.CharField(
+        label="Mensaje para el vecino (opcional)",
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "class": "resident-message",
+                "placeholder": "Explica brevemente el motivo de la decisión",
+            }
+        ),
+    )
 
 
 # ------------------------------------------------
@@ -914,12 +1044,21 @@ class DocumentDeleteView(
 # ---------------------------
 # Certificado de residencia
 # ---------------------------
+
+COMUNA_JUNTA = "San Joaquín"  # todos los vecinos son de esta comuna
+
 class CertificateResidenceForm(forms.Form):
-    nombre = forms.CharField(label="Nombre completo", max_length=120)
-    rut = forms.CharField(label="RUT", max_length=20)
-    direccion = forms.CharField(label="Dirección", max_length=180)
-    comuna = forms.CharField(label="Comuna", max_length=80)
-    motivo = forms.CharField(label="Motivo", max_length=120, required=False)
+    motivo = forms.CharField(
+        label="Motivo",
+        max_length=120,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": "Ej: Presentar en el trabajo / colegio / institución, etc.",
+            }
+        ),
+    )
 
 
 def build_certificate_residence_pdf(data):
@@ -996,13 +1135,40 @@ def build_certificate_residence_pdf(data):
         f"Se firma en la comuna de {data['comuna']}, a {fecha_str}."
     )
 
-    text_obj.moveCursor(0, 50)
-
-    # Espacio para firma
-    text_obj.textLine("______________________________")
-    text_obj.textLine("Presidente Junta de Vecinos UT")
-
     c.drawText(text_obj)
+    
+    # Firma 
+    firma_path = os.path.join(
+        settings.BASE_DIR,
+        "static",
+        "img",
+        "firma_presidente.jpg",
+    )
+
+
+    # Dibuja la imagen de la firma si existe
+    if os.path.exists(firma_path):
+        # Coordenadas aproximadas (ajusta si quieres moverla)
+        firma_width = 180  # ancho en puntos
+        firma_height = 60  # alto en puntos
+        x = (width - firma_width) / 2  # centrado horizontal
+        y = 120  # altura desde la base de la página
+
+        c.drawImage(
+            firma_path,
+            x,
+            y,
+            width=firma_width,
+            height=firma_height,
+            mask="auto",
+            preserveAspectRatio=True,
+            anchor="c",
+        )
+
+    # Texto bajo la firma
+    c.setFont("Helvetica", 10)
+    c.drawCentredString(width / 2, 100, "Presidente Junta de Vecinos UT")
+
     c.showPage()
     c.save()
 
@@ -1012,33 +1178,77 @@ def build_certificate_residence_pdf(data):
 
 
 
+
 class CertificateResidenceView(NavItemsMixin, LoginRequiredMixin, View):
     """
-    Paso 1: mostrar formulario y guardar datos en sesión.
+    Paso 1: mostrar formulario (solo motivo) y guardar datos completos en sesión
+    usando la información del vecino asociado al usuario.
     """
     template_name = "core/documents/cert_residence_form.html"
 
-    def get(self, request):
-        full_name = f"{getattr(request.user, 'first_name', '')} {getattr(request.user, 'last_name', '')}".strip()
-        initial = {}
-        if full_name:
-            initial["nombre"] = full_name
+    def _get_resident(self, request):
+        from .models import Resident  # por si no está importado arriba
 
-        form = CertificateResidenceForm(initial=initial)
-        return render(request, self.template_name, {"form": form})
+        vecino = (
+            Resident.objects.filter(user=request.user)
+            .select_related("user")
+            .first()
+        )
+        return vecino
+
+    def get(self, request):
+        vecino = self._get_resident(request)
+        if not vecino:
+            messages.warning(
+                request,
+                "Tu usuario aún no está asociado a un vecino. "
+                "Contacta a la directiva para registrar tus datos."
+            )
+            return redirect("core:documents-list")
+
+        form = CertificateResidenceForm()
+        contexto = {
+            "form": form,
+            "resident": vecino,
+            "comuna": COMUNA_JUNTA,
+        }
+        return render(request, self.template_name, contexto)
 
     def post(self, request):
+        vecino = self._get_resident(request)
+        if not vecino:
+            messages.warning(
+                request,
+                "Tu usuario aún no está asociado a un vecino. "
+                "Contacta a la directiva para registrar tus datos."
+            )
+            return redirect("core:documents-list")
+
         form = CertificateResidenceForm(request.POST)
         if not form.is_valid():
-            return render(request, self.template_name, {"form": form})
+            contexto = {
+                "form": form,
+                "resident": vecino,
+                "comuna": COMUNA_JUNTA,
+            }
+            return render(request, self.template_name, contexto)
 
-        data = form.cleaned_data
+        motivo = (form.cleaned_data.get("motivo") or "").strip()
+
+        # Construimos los datos definitivos a partir del vecino + motivo
+        nombre = vecino.nombre or request.user.get_full_name() or request.user.username
+        data = {
+            "nombre": nombre,
+            "rut": vecino.rut or "",
+            "direccion": vecino.direccion or "",
+            "comuna": COMUNA_JUNTA,
+            "motivo": motivo,
+        }
 
         # Guardamos los datos en sesión para usarlos en la vista previa / PDF / email
         request.session["cert_res_data"] = data
 
         return redirect("core:cert_residence_preview")
-
 
 class CertificateResidencePreviewView(NavItemsMixin, LoginRequiredMixin, View):
     """
@@ -1178,19 +1388,27 @@ class CertificateResidenceSendEmailView(LoginRequiredMixin, View):
 # Salvoconducto de mudanza
 # ---------------------------
 class SalvoconductoForm(forms.Form):
-    nombre = forms.CharField(label="Nombre completo", max_length=120)
-    rut = forms.CharField(label="RUT", max_length=20)
-    domicilio_origen = forms.CharField(
-        label="Domicilio de origen", max_length=200
-    )
     domicilio_destino = forms.CharField(
-        label="Domicilio de destino", max_length=200
+        label="Domicilio de destino",
+        max_length=200,
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "Ej: Calle Falsa 123, depto 4",
+                "class": "input",
+            }
+        ),
     )
-    comuna = forms.CharField(label="Comuna", max_length=80)
     fecha_mudanza = forms.DateField(
         label="Fecha de mudanza",
-        widget=forms.DateInput(attrs={"type": "date"}),
+        widget=forms.DateInput(
+            attrs={
+                "type": "date",
+                "class": "input",
+            }
+        ),
     )
+
+
 
 def build_salvoconducto_pdf(data):
     """
@@ -1272,11 +1490,40 @@ def build_salvoconducto_pdf(data):
     text.textLine(
         f"Se firma en la comuna de {data['comuna']}, a {fecha_emision_str}."
     )
-    text.moveCursor(0, 50)
-    text.textLine("______________________________")
-    text.textLine("Presidente Junta de Vecinos UT")
 
+    # Dibujamos todo el texto del cuerpo
     c.drawText(text)
+
+    # --- Firma (igual que en el certificado de residencia) ---
+    firma_path = os.path.join(
+        settings.BASE_DIR,
+        "static",
+        "img",
+        "firma_presidente.jpg",
+    )
+
+    if os.path.exists(firma_path):
+        # Coordenadas aproximadas (ajusta si quieres moverla)
+        firma_width = 180  # ancho en puntos
+        firma_height = 60  # alto en puntos
+        x = (width - firma_width) / 2  # centrado horizontal
+        y = 120  # altura desde la parte inferior
+
+        c.drawImage(
+            firma_path,
+            x,
+            y,
+            width=firma_width,
+            height=firma_height,
+            mask="auto",
+            preserveAspectRatio=True,
+            anchor="c",
+        )
+
+    # Texto bajo la firma
+    c.setFont("Helvetica", 10)
+    c.drawCentredString(width / 2, 100, "Presidente Junta de Vecinos UT")
+
     c.showPage()
     c.save()
 
@@ -1284,35 +1531,80 @@ def build_salvoconducto_pdf(data):
     buffer.close()
     return pdf_bytes
 
+
 class SalvoconductoView(NavItemsMixin, LoginRequiredMixin, View):
     """
     Paso 1: formulario de salvoconducto.
+    Muestra los datos del vecino en modo solo lectura
+    y solo pide domicilio de destino + fecha de mudanza.
     """
+
     template_name = "core/documents/salvoconducto_form.html"
 
+    def _get_resident(self, request):
+        return (
+            Resident.objects.filter(user=request.user)
+            .select_related("user")
+            .first()
+        )
+
     def get(self, request):
-        full_name = f"{getattr(request.user, 'first_name', '')} {getattr(request.user, 'last_name', '')}".strip()
-        initial = {}
-        if full_name:
-            initial["nombre"] = full_name
-        form = SalvoconductoForm(initial=initial)
-        return render(request, self.template_name, {"form": form})
+        vecino = self._get_resident(request)
+        if not vecino:
+            messages.warning(
+                request,
+                "Tu usuario aún no está asociado a un vecino. "
+                "Contacta a la directiva para registrar tus datos."
+            )
+            return redirect("core:documents-list")
+
+        form = SalvoconductoForm()
+        contexto = {
+            "form": form,
+            "resident": vecino,
+            "comuna": COMUNA_JUNTA,  # ya la tienes definida arriba
+        }
+        return render(request, self.template_name, contexto)
 
     def post(self, request):
+        vecino = self._get_resident(request)
+        if not vecino:
+            messages.warning(
+                request,
+                "Tu usuario aún no está asociado a un vecino. "
+                "Contacta a la directiva para registrar tus datos."
+            )
+            return redirect("core:documents-list")
+
         form = SalvoconductoForm(request.POST)
         if not form.is_valid():
-            return render(request, self.template_name, {"form": form})
+            contexto = {
+                "form": form,
+                "resident": vecino,
+                "comuna": COMUNA_JUNTA,
+            }
+            return render(request, self.template_name, contexto)
 
-        data = form.cleaned_data
+        # Construimos los datos finales combinando ficha + formulario
+        nombre = (
+            vecino.nombre
+            or request.user.get_full_name()
+            or request.user.username
+        )
 
-        # Hacemos una copia para no modificar cleaned_data original
-        data = data.copy()
-        # Convertimos la fecha a string ISO (JSON serializable)
-        if data.get("fecha_mudanza"):
-            data["fecha_mudanza"] = data["fecha_mudanza"].isoformat()
+        data = {
+            "nombre": nombre,
+            "rut": vecino.rut or "",
+            "domicilio_origen": vecino.direccion or "",
+            "domicilio_destino": form.cleaned_data["domicilio_destino"],
+            "comuna": COMUNA_JUNTA,
+            # Guardamos como string ISO para la sesión
+            "fecha_mudanza": form.cleaned_data["fecha_mudanza"].isoformat(),
+        }
 
         request.session["salvoconducto_data"] = data
         return redirect("core:cert_salvoconducto_preview")
+
 
 
 
@@ -1685,6 +1977,11 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
         initial["tipo"] = self.get_tipo_actual()
         return initial
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["request"] = self.request   # 👈 para que el form lea GET (?tipo, ?resource, ?start_date)
+        return kwargs
+
     # -----------------------------
     # 2) Crear reserva + Payment
     # -----------------------------
@@ -1726,7 +2023,7 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse_lazy("core:reservation_mine")
-
+    
 class ReservationCancelView(LoginRequiredMixin, View):
     def post(self, request, pk):
         reserva = get_object_or_404(

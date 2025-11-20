@@ -6,37 +6,20 @@
 
 <div class="docs-form-card">
   <p class="docs-form-subtitle">
-    Completa tus datos y te mostraremos una vista previa del certificado.
-    Desde allí podrás descargar el PDF o enviarlo a tu correo.
+    Usaremos los datos que tienes registrados en la Junta de Vecinos. 
+    Solo debes indicar el motivo por el que necesitas el certificado.
   </p>
 
-  <form method="post" class="docs-form">
+  <div class="docs-summary">
+    <p><strong>Nombre completo:</strong> {{ resident.nombre|default:user.get_full_name }}</p>
+    <p><strong>RUT:</strong> {{ resident.rut }}</p>
+    <p><strong>Dirección:</strong> {{ resident.direccion }}</p>
+    <p><strong>Comuna:</strong> {{ comuna }}</p>
+  </div>
+
+  <form method="post" class="docs-form" style="margin-top: 1.5rem;">
     {% csrf_token %}
     {{ form.non_field_errors }}
-
-    <div class="form-row">
-      <label for="{{ form.nombre.id_for_label }}">Nombre completo</label>
-      {{ form.nombre }}
-      {{ form.nombre.errors }}
-    </div>
-
-    <div class="form-row">
-      <label for="{{ form.rut.id_for_label }}">RUT</label>
-      {{ form.rut }}
-      {{ form.rut.errors }}
-    </div>
-
-    <div class="form-row">
-      <label for="{{ form.direccion.id_for_label }}">Dirección</label>
-      {{ form.direccion }}
-      {{ form.direccion.errors }}
-    </div>
-
-    <div class="form-row">
-      <label for="{{ form.comuna.id_for_label }}">Comuna</label>
-      {{ form.comuna }}
-      {{ form.comuna.errors }}
-    </div>
 
     <div class="form-row">
       <label for="{{ form.motivo.id_for_label }}">Motivo</label>

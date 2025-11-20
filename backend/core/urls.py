@@ -10,7 +10,9 @@ from .views import (
     InscriptionEvidenceListAdminView,
     InscriptionEvidenceManageView,
     PaymentReceiptUploadView,
-    PaymentReviewView
+    PaymentReviewView,
+    PresidentResidentsListView,
+    PresidentResidentManageView,
 )
 
 app_name = "core"
@@ -119,13 +121,13 @@ urlpatterns = [
     # -----------------------------
     path(
         "presidencia/vecinos/",
-        views.PresidentResidentsListView.as_view(),
+        PresidentResidentsListView.as_view(),
         name="president_residents",
     ),
     path(
-        "presidencia/vecinos/<int:pk>/toggle/",
-        views.PresidentResidentToggleActiveView.as_view(),
-        name="resident_toggle",
+        "presidencia/vecinos/<int:pk>/gestionar/",
+        PresidentResidentManageView.as_view(),
+        name="resident_manage",
     ),
     # -----------------------------
     # Documentos
@@ -180,12 +182,13 @@ urlpatterns = [
         views.CertificateResidenceSendEmailView.as_view(),
         name="cert_residence_send_email",
     ),
+    # Salvoconducto
     path(
         "documentos/salvoconducto/",
         views.SalvoconductoView.as_view(),
         name="cert_salvoconducto",
     ),
-        path(
+    path(
         "documentos/salvoconducto/preview/",
         views.SalvoconductoPreviewView.as_view(),
         name="cert_salvoconducto_preview",
@@ -201,7 +204,7 @@ urlpatterns = [
         name="cert_salvoconducto_download",
     ),
     path(
-        "documentos/salvoconducto/enviar-correo/",
+        "documentos/salvoconducto/enviar/",
         views.SalvoconductoSendEmailView.as_view(),
         name="cert_salvoconducto_send_email",
     ),
@@ -274,18 +277,19 @@ urlpatterns = [
         InscriptionEvidenceManageView.as_view(),
         name="insc_manage",
     ),
-        # Vecino sube comprobante
+    # Vecino sube comprobante
     path(
         "pagos/<int:pk>/subir-comprobante/",
         PaymentReceiptUploadView.as_view(),
         name="payment_upload_receipt",
     ),
-
     # Tesorero / Presidente revisa pago
     path(
         "pagos/admin/<int:pk>/revisar/",
         PaymentReviewView.as_view(),
         name="payment_review",
     ),
+
+
 ]
 

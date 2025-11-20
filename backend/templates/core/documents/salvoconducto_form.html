@@ -6,31 +6,20 @@
 
 <div class="docs-form-card">
   <p class="docs-form-subtitle">
-    Completa los datos de tu mudanza y te mostraremos una vista previa del
-    salvoconducto. Desde ahí podrás descargar el PDF o enviarlo a tu correo.
+    Usaremos los datos que tienes registrados en la Junta de Vecinos. 
+    Solo debes indicar el domicilio de destino y la fecha de tu mudanza.
   </p>
 
-  <form method="post" class="docs-form">
+  <div class="docs-summary">
+    <p><strong>Nombre completo:</strong> {{ resident.nombre|default:user.get_full_name }}</p>
+    <p><strong>RUT:</strong> {{ resident.rut }}</p>
+    <p><strong>Domicilio de origen:</strong> {{ resident.direccion }}</p>
+    <p><strong>Comuna:</strong> {{ comuna }}</p>
+  </div>
+
+  <form method="post" class="docs-form" style="margin-top: 1.5rem;">
     {% csrf_token %}
     {{ form.non_field_errors }}
-
-    <div class="form-row">
-      <label for="{{ form.nombre.id_for_label }}">Nombre completo</label>
-      {{ form.nombre }}
-      {{ form.nombre.errors }}
-    </div>
-
-    <div class="form-row">
-      <label for="{{ form.rut.id_for_label }}">RUT</label>
-      {{ form.rut }}
-      {{ form.rut.errors }}
-    </div>
-
-    <div class="form-row">
-      <label for="{{ form.domicilio_origen.id_for_label }}">Domicilio de origen</label>
-      {{ form.domicilio_origen }}
-      {{ form.domicilio_origen.errors }}
-    </div>
 
     <div class="form-row">
       <label for="{{ form.domicilio_destino.id_for_label }}">Domicilio de destino</label>
@@ -39,13 +28,7 @@
     </div>
 
     <div class="form-row">
-      <label for="{{ form.comuna.id_for_label }}">Comuna</label>
-      {{ form.comuna }}
-      {{ form.comuna.errors }}
-    </div>
-
-    <div class="form-row">
-      <label for="{{ form.fecha_mudanza.id_for_label }}">Fecha de uso del salvoconducto</label>
+      <label for="{{ form.fecha_mudanza.id_for_label }}">Fecha de mudanza</label>
       {{ form.fecha_mudanza }}
       {{ form.fecha_mudanza.errors }}
     </div>

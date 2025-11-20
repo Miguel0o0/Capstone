@@ -3,9 +3,20 @@
 
 {% block title %}Inicio – Junta UT{% endblock %}
 
+{# CSS de Leaflet solo para esta página #}
+{% block extra_head %}
+  {{ block.super }}
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+{% endblock %}
+
 {% block content %}
 <div class="home-welcome">
-  <h1 class="home-welcome-title">Bienvenido a la Junta de Vecinos UT</h1>
+  <h1 class="home-welcome-title">Bienvenido a la Junta de Vecinos UT Nro 2</h1>
   <p class="home-welcome-subtitle">Vecinos de la comunidad</p>
 
   {# Introducción general #}
@@ -25,6 +36,26 @@
          alt="Vecinos de la comunidad"
          class="home-welcome-image">
   </div>
+
+  {# ==== MAPA SOLO PARA USUARIOS SIN SESIÓN ==== #}
+  {% if not request.user.is_authenticated %}
+    <section class="home-map-section">
+      <div class="home-map-card">
+        <h2>¿Estás dentro del área de la Junta?</h2>
+        <p class="home-map-text">
+          Este mapa muestra el sector cubierto por la Junta de Vecinos UT. 
+          Si tu domicilio está dentro de esta área, puedes registrarte como vecino 
+          y usar todos los servicios de la plataforma.
+        </p>
+
+        <div id="junta-map"></div>
+
+        <p class="home-map-caption">
+          Centro de la Junta: <strong>Diego de Meza 5431, San Joaquín</strong>.
+        </p>
+      </div>
+    </section>
+  {% endif %}
 
   {# Diferente contenido según si está autenticado o no #}
   {% if request.user.is_authenticated %}
@@ -137,4 +168,43 @@
 
   {% endif %}
 </div>
+{% endblock %}
+
+{# JS de Leaflet solo para anónimos, así evitamos ejecutar código si no hay mapa #}
+{% block extra_body %}
+  {{ block.super }}
+  {% if not request.user.is_authenticated %}
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        var center = [-33.506636, -70.635536]; // Diego de Meza 5431
+
+        var map = L.map("junta-map").setView(center, 15);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        }).addTo(map);
+
+        L.marker(center)
+          .addTo(map)
+          .bindPopup("Junta de Vecinos UT")
+          .openPopup();
+
+        L.circle(center, {
+          radius: 900, // metros – ajusta el tamaño del área
+          color: "#1d4ed8",
+          fillColor: "#1d4ed8",
+          fillOpacity: 0.15,
+          weight: 2,
+        }).addTo(map);
+      });
+    </script>
+  {% endif %}
 {% endblock %}

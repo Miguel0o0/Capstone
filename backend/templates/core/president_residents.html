@@ -7,24 +7,35 @@
   <h1>Gestión de vecinos</h1>
   <p>Desde aquí el Presidente puede ver y gestionar a todas las personas registradas en la Junta de Vecinos.</p>
 
-  <form method="get" class="mb-3 d-flex gap-2 align-items-end">
+  <form method="get" class="resident-filters mb-3">
     <input
       type="text"
       name="q"
       placeholder="Buscar por nombre o email"
       value="{{ q }}"
-      style="min-width: 260px;"
+      class="resident-filter-input"
     >
-    <select name="activo">
-      <option value="">Activo (todos)</option>
-      <option value="si" {% if activo == "si" %}selected{% endif %}>Solo activos</option>
-      <option value="no" {% if activo == "no" %}selected{% endif %}>Solo desactivados</option>
-    </select>
-    <button type="submit">Filtrar</button>
-    {% if q or activo %}
-      <a href="{% url 'core:president_residents' %}" style="margin-left:.5rem;">Limpiar</a>
-    {% endif %}
+
+    <div class="resident-filters-right">
+      <select name="activo" class="resident-filter-select">
+        <option value="">Activo (todos)</option>
+        <option value="si" {% if activo == "si" %}selected{% endif %}>Solo activos</option>
+        <option value="no" {% if activo == "no" %}selected{% endif %}>Solo desactivados</option>
+      </select>
+
+      <button type="submit" class="resident-filter-btn">
+        Filtrar
+      </button>
+
+      {% if q or activo %}
+        <a href="{% url 'core:president_residents' %}"
+           class="resident-filter-clear">
+          Limpiar
+        </a>
+      {% endif %}
+    </div>
   </form>
+
 
   <table class="table table-striped align-middle">
     <thead>
@@ -77,14 +88,13 @@
             {% if v.activo %}Sí{% else %}No{% endif %}
           </td>
 
-          <td>
-            <form method="post" action="{% url 'core:resident_toggle' v.pk %}">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm btn-outline-primary">
-                {% if v.activo %}Dar de baja{% else %}Reactivar{% endif %}
-              </button>
-            </form>
+          <td class="resident-actions-cell">
+            <a href="{% url 'core:resident_manage' v.pk %}"
+              class="resident-action-btn w-100 text-center">
+              Gestionar
+            </a>
           </td>
+
         </tr>
       {% empty %}
         <tr>
