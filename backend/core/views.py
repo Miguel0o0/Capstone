@@ -48,6 +48,7 @@ from .forms import (
     MeetingForm,
     ReservationForm,
     ReservationManageForm,
+    ReservationCancelForm,
     PaymentReviewForm,
     PaymentReviewForm,
     PaymentReceiptUploadForm
@@ -1950,8 +1951,13 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
         ctx["recursos"] = Resource.objects.filter(activo=True).order_by("nombre")
         ctx["estado"] = self.request.GET.get("estado", "")
         ctx["recurso_selected"] = self.request.GET.get("recurso", "")
-        return ctx
 
+        # NUEVO: solo Presidente y Tesorero ven el motivo de cancelación
+        u = self.request.user
+        groups = set(u.groups.values_list("name", flat=True))
+        ctx["show_cancel_reason"] = "Presidente" in groups or "Tesorero" in groups
+
+        return ctx
 
 class ReservationCreateView(LoginRequiredMixin, CreateView):
     model = Reservation
@@ -2025,33 +2031,70 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("core:reservation_mine")
     
 class ReservationCancelView(LoginRequiredMixin, View):
-    def post(self, request, pk):
-        reserva = get_object_or_404(
+    """
+    Paso único: muestra un formulario para que el vecino indique
+    el motivo de cancelación y, al confirmar, marca la reserva como
+    CANCELLED y anula el pago pendiente asociado.
+    """
+
+    template_name = "core/reservations/cancel_form.html"
+
+    def get_object(self, request, pk):
+        # Solo puede cancelar sus propias reservas
+        return get_object_or_404(
             Reservation,
             pk=pk,
-            requested_by=request.user,   # ajusta si tu campo se llama distinto
+            requested_by=request.user,
         )
 
-        # Solo si aún está pendiente
-        if reserva.status == Reservation.Status.PENDING:
-            reserva.status = Reservation.Status.CANCELLED
-            reserva.cancelled_at = timezone.now() if hasattr(reserva, "cancelled_at") else reserva.cancelled_at
-            reserva.save()
+    def get(self, request, pk):
+        reserva = self.get_object(request, pk)
 
-            # Anular pago pendiente asociado a esa reserva
-            Payment.objects.filter(
-                reservation=reserva,
-                origin=Payment.ORIGIN_RESERVATION,
-                status=Payment.STATUS_PENDING,
-            ).update(status=Payment.STATUS_CANCELLED)
-
-            messages.success(
-                request,
-                "Reserva cancelada y pago pendiente anulado."
-            )
-        else:
+        if reserva.status != Reservation.Status.PENDING:
             messages.info(request, "Esta reserva ya no se puede cancelar.")
+            return redirect("core:reservation_mine")
 
+        form = ReservationCancelForm()
+        contexto = {
+            "reserva": reserva,
+            "form": form,
+        }
+        return render(request, self.template_name, contexto)
+
+    def post(self, request, pk):
+        reserva = self.get_object(request, pk)
+
+        if reserva.status != Reservation.Status.PENDING:
+            messages.info(request, "Esta reserva ya no se puede cancelar.")
+            return redirect("core:reservation_mine")
+
+        form = ReservationCancelForm(request.POST)
+        if not form.is_valid():
+            return render(
+                request,
+                self.template_name,
+                {"reserva": reserva, "form": form},
+            )
+
+        motivo = form.cleaned_data["reason"].strip()
+
+        # Actualizar reserva
+        reserva.status = Reservation.Status.CANCELLED
+        reserva.cancelled_at = timezone.now() if hasattr(reserva, "cancelled_at") else None
+        reserva.cancel_reason = motivo
+        reserva.save(update_fields=["status", "cancelled_at", "cancel_reason"])
+
+        # Anular pago pendiente asociado a esa reserva (esto ya lo tenías)
+        Payment.objects.filter(
+            reservation=reserva,
+            origin=Payment.ORIGIN_RESERVATION,
+            status=Payment.STATUS_PENDING,
+        ).update(status=Payment.STATUS_CANCELLED)
+
+        messages.success(
+            request,
+            "Reserva cancelada, pago pendiente anulado y motivo registrado.",
+        )
         return redirect("core:reservation_mine")
 
 

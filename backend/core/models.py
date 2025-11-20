@@ -630,6 +630,13 @@ class Reservation(models.Model):
         verbose_name = "Reserva"
         verbose_name_plural = "Reservas"
 
+    cancel_reason = models.TextField(
+        "Motivo de cancelación",
+        blank=True,
+        null=True,
+        help_text="Motivo indicado por el vecino al cancelar la reserva.",
+    )
+
     def __str__(self):
         return f"{self.resource} · {self.title} · {self.start_at:%Y-%m-%d %H:%M}"
 

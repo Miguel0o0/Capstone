@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Cancelar reserva{% endblock %}
+
+{% block content %}
+<h1>Cancelar reserva</h1>
+
+<div class="docs-form-card">
+  <p class="docs-form-subtitle">
+    Estás a punto de cancelar la siguiente reserva. 
+    Por favor indica el motivo y confirma la acción.
+  </p>
+
+  <div class="docs-summary">
+    <p><strong>Recurso:</strong> {{ reserva.resource }}</p>
+    <p><strong>Título:</strong> {{ reserva.title }}</p>
+    <p>
+      <strong>Fecha:</strong> 
+      {{ reserva.start_at|date:"d-m-Y" }}
+    </p>
+    <p>
+      <strong>Hora:</strong> 
+      {{ reserva.start_at|date:"H:i" }} – {{ reserva.end_at|date:"H:i" }}
+    </p>
+    <p>
+      <strong>Estado actual:</strong> 
+      {{ reserva.get_status_display }}
+    </p>
+  </div>
+
+  <form method="post" class="docs-form" style="margin-top: 1.5rem;">
+    {% csrf_token %}
+
+    <div class="form-row">
+      <label for="{{ form.reason.id_for_label }}">
+        Motivo de la cancelación
+      </label>
+      {{ form.reason }}
+      {% if form.reason.errors %}
+        <div class="error">
+          {{ form.reason.errors.0 }}
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="docs-form-actions">
+      <button type="submit" class="btn btn-danger">
+        Confirmar cancelación
+      </button>
+      <a href="{% url 'core:reservation_mine' %}" class="btn">
+        Volver sin cancelar
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

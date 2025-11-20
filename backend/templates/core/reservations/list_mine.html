@@ -15,7 +15,7 @@
   <strong>“Mis pagos”</strong>.
 </p>
 
-<div class="card" style="max-width:980px; margin:0 auto;">
+<div class="card">
   <table class="table">
     <thead>
       <tr>
@@ -25,6 +25,9 @@
         <th>Inicio</th>
         <th>Término</th>
         <th>Estado</th>
+        {% if show_cancel_reason %}
+          <th>Motivo cancelación</th>
+        {% endif %}
         <th></th>
       </tr>
     </thead>
@@ -36,8 +39,9 @@
         <td>{{ r.title }}</td>
         <td>{{ r.start_at|date:"d-m-Y H:i" }}</td>
         <td>{{ r.end_at|date:"d-m-Y H:i" }}</td>
+
+        {# Píldoras de estado #}
         <td>
-          {# Píldoras de estado, usando el mismo estilo que en Mis pagos #}
           {% if r.status == "PENDING" %}
             <span class="status-pill status-pill-pending">
               {{ r.get_status_display }}
@@ -54,21 +58,38 @@
             {{ r.get_status_display }}
           {% endif %}
         </td>
-        <td>
-          {# Solo puede cancelar quien creó la reserva y si está pendiente/aprobada #}
-          {% if r.requested_by_id == user.id %}
-            {% if r.status == "PENDING" or r.status == "APPROVED" %}
-              <form method="post" action="{% url 'core:reservation_cancel' r.pk %}" style="display:inline;">
-                {% csrf_token %}
-                <button class="btn btn-sm btn-outline" type="submit">Cancelar</button>
-              </form>
+
+        {# Solo Presidente / Tesorero ven el motivo #}
+        {% if show_cancel_reason %}
+          <td class="small">
+            {% if r.status == "CANCELLED" %}
+              {% if r.cancel_reason %}
+                {{ r.cancel_reason }}
+              {% else %}
+                Sin motivo registrado 
+              {% endif %}
+            {% else %}
+              —
             {% endif %}
+          </td>
+        {% endif %}
+
+        <td class="text-right">
+          {# Botón cancelar: solo el vecino que creó la reserva y si está pendiente #}
+          {% if r.requested_by_id == user.id and r.status == "PENDING" %}
+            <a href="{% url 'core:reservation_cancel' r.pk %}" class="btn btn-link">
+              Cancelar
+            </a>
+          {% else %}
+            —
           {% endif %}
         </td>
       </tr>
     {% empty %}
       <tr>
-        <td colspan="7" class="muted" style="text-align:center;">
+        <td colspan="{% if show_cancel_reason %}8{% else %}7{% endif %}"
+            class="muted"
+            style="text-align:center;">
           No tienes reservas por ahora.
         </td>
       </tr>
