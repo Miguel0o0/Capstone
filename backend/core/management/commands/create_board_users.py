@@ -7,12 +7,11 @@ from django.core.management.base import BaseCommand
 User = get_user_model()
 
 USERS = [
-    # username, email, first_name, last_name, group_name
-    ("alexis.presidente", "alexis.sanchez@gmail.com", "Alexis", "Sanchez", "Presidente"),
-    ("messi.tesorero", "lionel.messi@gmail.com", "Liones", "Messi", "Tesorero"),
-    ("william.delegado", "william.lopez@gmail.com", "William", "Lopez", "Delegado"),
-    ("cristiano.secretario", "cristiano.ronaldo@gmail.com", "Cristiano", "ronaldo", "Secretario"),
-    ("miguel.vecino", "miguel.medina@gmail.com", "Miguel", "Medina", "Vecino"),
+    ("william.presidente", "william@correo.com", "William", "Presidente", "Presidente"),
+    ("miguel.secretario", "miguel@correo.com", "Miguel", "Secretario", "Secretario"),
+    ("matias.tesorero", "matias@correo.com", "Matias", "Tesorero", "Tesorero"),
+    ("lucas.delegado", "lucas@correo.com", "Lucas", "Delegado", "Delegado"),
+    ("daniel.vecino", "daniel@correo.com", "Daniel", "Vecino", "Vecino"),
 ]
 
 DEFAULT_PASSWORD = "Demo1234!"  # cambia luego en admin si quieres
