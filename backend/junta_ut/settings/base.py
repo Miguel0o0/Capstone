@@ -41,8 +41,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    # App
-    "core",
+    "core.apps.CoreConfig",
 ]
 
 MIDDLEWARE = [
@@ -69,7 +68,8 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "core.context_processors.site_settings",
-                "core.context_processors.nav_items",  # 👈 AÑADIR ESTA LÍNEA
+                "core.context_processors.nav_items",
+                "core.context_processors.notifications", 
             ],
         },
     },

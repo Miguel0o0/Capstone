@@ -974,6 +974,32 @@ class InscriptionEvidence(models.Model):
     def __str__(self):
         return f"Inscripción #{self.pk} - {self.get_status_display()} - {self.full_name}"
 
+class Notification(models.Model):
+    TYPE_ANNOUNCEMENT = "announcement"
+    TYPE_INCIDENT = "incident"
+
+    TYPE_CHOICES = [
+        (TYPE_ANNOUNCEMENT, "Aviso"),
+        (TYPE_INCIDENT, "Incidencia"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    message = models.TextField()
+    url = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="URL a donde llevamos al usuario al hacer clic en la notificación",
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 

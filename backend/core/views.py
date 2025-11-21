@@ -1263,7 +1263,15 @@ class CertificateResidencePreviewView(NavItemsMixin, LoginRequiredMixin, View):
             messages.warning(request, "Primero debes completar el formulario del certificado.")
             return redirect("core:cert_residence")
 
-        return render(request, self.template_name, {"data": data})
+        # ⬇️ Leemos y limpiamos la flag de pop-up desde sesión
+        show_email_modal = request.session.pop("show_cert_email_modal", False)
+
+        contexto = {
+            "data": data,
+            "show_email_modal": show_email_modal,
+        }
+        return render(request, self.template_name, contexto)
+
 
 @method_decorator(xframe_options_exempt, name="dispatch")
 class CertificateResidencePdfView(LoginRequiredMixin, View):
@@ -1344,7 +1352,6 @@ class CertificateResidenceSendEmailView(LoginRequiredMixin, View):
             or request.user.username
         )
 
-        # Cuerpo del correo (texto plano)
         cuerpo = (
             f"Estimado/a {nombre_saludo},\n\n"
             "Adjuntamos en este correo su Certificado de Residencia emitido por la Junta "
@@ -1373,16 +1380,18 @@ class CertificateResidenceSendEmailView(LoginRequiredMixin, View):
                 "application/pdf",
             )
             email.send(fail_silently=False)
-            messages.success(request, "Enviamos el certificado a tu correo.")
+
+            # 👇 SIN messages.success. En su lugar redirigimos con ?email_sent=1
+            url = reverse("core:cert_residence_preview")
+            return HttpResponseRedirect(f"{url}?email_sent=1")
+
         except Exception as e:
             print("ERROR enviando certificado:", e)
             messages.warning(
                 request,
                 "Hubo un problema al enviar el correo con el certificado.",
             )
-
-        return redirect("core:cert_residence_preview")
-
+            return redirect("core:cert_residence_preview")
 
 
 # ---------------------------
@@ -1620,7 +1629,17 @@ class SalvoconductoPreviewView(NavItemsMixin, LoginRequiredMixin, View):
         if not data:
             messages.warning(request, "Primero debes completar el formulario del salvoconducto.")
             return redirect("core:cert_salvoconducto")
-        return render(request, self.template_name, {"data": data})
+
+        # ⬇️ Flag para mostrar el pop-up después de enviar correo
+        show_email_modal = request.session.pop("show_salvo_email_modal", False)
+
+        contexto = {
+            "data": data,
+            "show_email_modal": show_email_modal,
+        }
+        return render(request, self.template_name, contexto)
+
+
 
 
 @method_decorator(xframe_options_exempt, name="dispatch")
@@ -1716,11 +1735,11 @@ class SalvoconductoSendEmailView(LoginRequiredMixin, View):
             "Adjuntamos en este correo su Salvoconducto de Mudanza emitido por la "
             "Junta de Vecinos UT.\n\n"
             "Resumen de los datos registrados:\n"
-            f" - Nombre completo    : {data.get('nombre')}\n"
-            f" - RUT                : {data.get('rut')}\n"
-            f" - Domicilio de origen: {data.get('domicilio_origen')}\n"
+            f" - Nombre completo     : {data.get('nombre')}\n"
+            f" - RUT                 : {data.get('rut')}\n"
+            f" - Domicilio de origen : {data.get('domicilio_origen')}\n"
             f" - Domicilio de destino: {data.get('domicilio_destino')}\n"
-            f" - Fecha de mudanza   : {fecha_mudanza_str}\n\n"
+            f" - Fecha de mudanza    : {fecha_mudanza_str}\n\n"
             "Este salvoconducto se emite para fines de control y traslado, y puede "
             "ser presentado ante la autoridad competente cuando sea requerido.\n\n"
             "Le recomendamos revisar que la información indicada sea correcta antes "
@@ -1742,16 +1761,18 @@ class SalvoconductoSendEmailView(LoginRequiredMixin, View):
                 "application/pdf",
             )
             email.send(fail_silently=False)
-            messages.success(request, "Enviamos el salvoconducto a tu correo.")
+
+            # 👇 Redirigimos con el flag para el modal
+            url = reverse("core:cert_salvoconducto_preview")
+            return HttpResponseRedirect(f"{url}?email_sent=1")
+
         except Exception as e:
             print("ERROR enviando salvoconducto:", e)
             messages.warning(
                 request,
                 "Hubo un problema al enviar el correo con el salvoconducto.",
             )
-
-        return redirect("core:cert_salvoconducto_preview")
-
+            return redirect("core:cert_salvoconducto_preview")
 
 
 # ------------------------------------------------
@@ -1931,10 +1952,8 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
     def get_queryset(self):
         user = self.request.user
 
-        # Base: traemos recurso y usuario para evitar queries extra
         qs = Reservation.objects.select_related("resource", "requested_by")
 
-        # Usuarios de gestión (ven TODAS las reservas)
         grupos_gestion = ["Delegado", "Tesorero", "Secretario", "Presidente"]
         es_gestion = (
             user.is_superuser or user.groups.filter(name__in=grupos_gestion).exists()
@@ -1943,7 +1962,6 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
         if es_gestion:
             return qs.order_by("-start_at")
 
-        # Vecino (u otro rol no gestión): solo ve sus reservas
         return qs.filter(requested_by=user).order_by("-start_at")
 
     def get_context_data(self, **kwargs):
@@ -1952,10 +1970,20 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
         ctx["estado"] = self.request.GET.get("estado", "")
         ctx["recurso_selected"] = self.request.GET.get("recurso", "")
 
-        # NUEVO: solo Presidente y Tesorero ven el motivo de cancelación
+        # Solo Presidente y Tesorero ven el motivo de cancelación
         u = self.request.user
         groups = set(u.groups.values_list("name", flat=True))
         ctx["show_cancel_reason"] = "Presidente" in groups or "Tesorero" in groups
+
+        # Datos para el pop-up (vienen por querystring)
+        if self.request.GET.get("created") == "1":
+            date_str = self.request.GET.get("date")
+            time_str = self.request.GET.get("time")
+            if date_str and time_str:
+                ctx["created_reservation"] = {
+                    "date": date_str,
+                    "time": time_str,
+                }
 
         return ctx
 
@@ -1964,19 +1992,12 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
     form_class = ReservationForm
     template_name = "core/reservations/form.html"
 
-    # -----------------------------
-    # 1) Leer el tipo desde la URL
-    # -----------------------------
     def get_tipo_actual(self):
-        """
-        Devuelve el tipo actual según GET/POST:
-        'cancha_futbol', 'cancha_basquet', 'cancha_padel' o 'salon'.
-        """
         tipo = self.request.GET.get("tipo") or self.request.POST.get("tipo")
         validos = {"cancha_futbol", "cancha_basquet", "cancha_padel", "salon"}
         if tipo in validos:
             return tipo
-        return "cancha_futbol"  # por defecto
+        return "cancha_futbol"
 
     def get_initial(self):
         initial = super().get_initial()
@@ -1985,12 +2006,9 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["request"] = self.request   # 👈 para que el form lea GET (?tipo, ?resource, ?start_date)
+        kwargs["request"] = self.request
         return kwargs
 
-    # -----------------------------
-    # 2) Crear reserva + Payment
-    # -----------------------------
     def form_valid(self, form):
         user = self.request.user
 
@@ -1998,11 +2016,11 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
         resident = Resident.objects.filter(user=user).first()
         if not resident:
             messages.error(self.request, "No se encontró tu ficha de vecino.")
-            return redirect("core:reservation_mine")
+            return HttpResponseRedirect(reverse("core:reservation_mine"))
 
         # 2.2 Bloquear si ya tiene una reserva con deuda pendiente
         tiene_deuda_reserva = Payment.objects.filter(
-            resident=user,                         # Payment.resident es AUTH_USER_MODEL
+            resident=user,
             origin=Payment.ORIGIN_RESERVATION,
             status=Payment.STATUS_PENDING,
         ).exists()
@@ -2010,25 +2028,31 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
         if tiene_deuda_reserva:
             messages.error(
                 self.request,
-                "Ya tienes una reserva pendiente. Debes pagar o cancelar esa "
-                "reserva antes de crear una nueva.",
+                (
+                    "Ya tienes una reserva pendiente. Debes pagar o cancelar esa "
+                    "reserva antes de crear una nueva."
+                ),
             )
-            return redirect("core:reservation_mine")
+            return HttpResponseRedirect(reverse("core:reservation_mine"))
 
-        # 2.3 Guardar la reserva asociada al usuario y al vecino
+        # 2.3 Guardar la reserva
         reservation = form.save(commit=False)
         reservation.requested_by = user
         reservation.resident = resident
         reservation.save()
 
-        # 2.4 Crear el pago pendiente por la reserva
+        # 2.4 Crear el pago pendiente
         Payment.create_for_reservation(reservation)
 
-        messages.success(self.request, "Reserva creada correctamente.")
-        return redirect("core:reservation_mine")
+        # 2.5 Redirigir a "Mis reservas" con fecha y hora para el pop-up
+        start_dt = reservation.start_at
+        date_str = start_dt.strftime("%d-%m-%Y")
+        time_str = start_dt.strftime("%H:%M")
 
-    def get_success_url(self):
-        return reverse_lazy("core:reservation_mine")
+        base_url = reverse("core:reservation_mine")
+        url = f"{base_url}?created=1&date={date_str}&time={time_str}"
+        return HttpResponseRedirect(url)
+
     
 class ReservationCancelView(LoginRequiredMixin, View):
     """

@@ -1,6 +1,11 @@
 from django.conf import settings
 from django.urls import reverse
 
+# Si prefieres evitar posibles imports circulares,
+# puedes mover el import de Notification dentro de la
+# función `notifications`, no hay problema.
+from .models import Notification
+
 
 def site_settings(request):
     """
@@ -9,7 +14,7 @@ def site_settings(request):
     """
     return {
         "DEBUG": settings.DEBUG,
-        "SITE_NAME": "Junta UT",  # cambia el nombre si quieres
+        "SITE_NAME": "Junta UT",
     }
 
 
@@ -94,3 +99,68 @@ def nav_items(request):
         )
 
     return {"nav_items": items}
+
+def notifications(request):
+    """
+    Contexto base para la campana de notificaciones.
+    Ahora diferenciamos entre avisos e incidencias.
+    """
+    if not request.user.is_authenticated:
+        return {
+            "notifications_unread_count": 0,
+            "notifications_recent": [],
+        }
+
+    from .models import Notification  # import local para evitar ciclos
+
+    # Todos los no leídos (para el número rojo de la campana)
+    base_qs = (
+        Notification.objects
+        .filter(user=request.user, is_read=False)
+        .order_by("-created_at")
+    )
+
+    unread_count = base_qs.count()
+
+    # Solo mostramos los 5 más recientes en el dropdown
+    recent_qs = list(base_qs[:5])
+
+    notifications_recent = []
+
+    for n in recent_qs:
+        # --- Título y resumen según el tipo de notificación ---
+
+        # Heurística extra por si type viene vacío: miramos la URL
+        is_announcement = (
+            n.type == Notification.TYPE_ANNOUNCEMENT
+            or (not n.type and (n.url or "").startswith("/avisos"))
+        )
+        is_incident = (
+            n.type == Notification.TYPE_INCIDENT
+            or (not n.type and (n.url or "").startswith("/incidencias"))
+        )
+
+        if is_announcement:
+            title = "Se ha publicado un nuevo aviso"
+            summary = "Revisa los avisos para estar al día con la junta."
+        elif is_incident:
+            title = "Se ha registrado una nueva incidencia"
+            summary = "Revisa las incidencias para estar al tanto de todo."
+        else:
+            # Fallback genérico (para notificaciones antiguas u otros tipos)
+            title = "Notificación"
+            summary = n.message or ""
+
+        notifications_recent.append(
+            {
+                "title": title,
+                "summary": summary,
+                "url": n.url or "#",
+            }
+        )
+
+    return {
+        "notifications_unread_count": unread_count,
+        "notifications_recent": notifications_recent,
+    }
+
