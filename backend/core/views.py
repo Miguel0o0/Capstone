@@ -16,7 +16,7 @@ from django.contrib.auth.mixins import (
 )
 from django.core.mail import EmailMessage
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponseRedirect
+from django.http import FileResponse, Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -67,6 +67,7 @@ from .models import (
     Reservation,
     Resident,
     Resource,
+    Notification
 )
 
 try:
@@ -351,9 +352,14 @@ class MeetingCreateView(
 ):
     permission_required = "core.add_meeting"
     model = Meeting
-    form_class = MeetingForm  # 👈 antes usaba fields = [...]
+    form_class = MeetingForm
     template_name = "core/meeting_form.html"
     success_url = reverse_lazy("core:meeting_list")
+
+    def form_valid(self, form):
+        # Guardamos quién creó la reunión
+        form.instance.creado_por = self.request.user
+        return super().form_valid(form)
 
 
 class MeetingUpdateView(
@@ -2244,5 +2250,22 @@ class InscriptionEvidenceManageView(PermissionRequiredMixin, UpdateView):
 
         messages.success(self.request, "Inscripción actualizada.")
         return redirect("core:insc_admin")
+    
+# ---------------------------------------------
+# Notificaciones: marcar como leídas al abrir
+# ---------------------------------------------
+class NotificationsMarkReadView(LoginRequiredMixin, View):
+    """
+    Marca como leídas todas las notificaciones del usuario actual.
+    Se usará vía AJAX al hacer click en la campana.
+    """
+
+    def post(self, request, *args, **kwargs):
+        Notification.objects.filter(
+            user=request.user,
+            is_read=False,
+        ).update(is_read=True)
+        return JsonResponse({"status": "ok"})
+
 
 

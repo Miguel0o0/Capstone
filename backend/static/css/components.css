@@ -790,3 +790,17 @@
   font-size: 0.85rem;
   color: #6b7280;
 }
+
+  .notif-chip-important {
+    display: inline-block;
+    margin-right: 0.4rem;
+    padding: 0.05rem 0.45rem;
+    font-size: 0.7rem;
+    border-radius: 999px;
+    background-color: #fee2e2;
+    color: #b91c1c;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+

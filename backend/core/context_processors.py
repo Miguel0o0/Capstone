@@ -101,19 +101,14 @@ def nav_items(request):
     return {"nav_items": items}
 
 def notifications(request):
-    """
-    Contexto base para la campana de notificaciones.
-    Ahora diferenciamos entre avisos e incidencias.
-    """
     if not request.user.is_authenticated:
         return {
             "notifications_unread_count": 0,
             "notifications_recent": [],
         }
 
-    from .models import Notification  # import local para evitar ciclos
+    from .models import Notification
 
-    # Todos los no leídos (para el número rojo de la campana)
     base_qs = (
         Notification.objects
         .filter(user=request.user, is_read=False)
@@ -122,40 +117,18 @@ def notifications(request):
 
     unread_count = base_qs.count()
 
-    # Solo mostramos los 5 más recientes en el dropdown
-    recent_qs = list(base_qs[:5])
+    # hasta 10 más recientes
+    recent_qs = list(base_qs[:10])
 
     notifications_recent = []
 
     for n in recent_qs:
-        # --- Título y resumen según el tipo de notificación ---
-
-        # Heurística extra por si type viene vacío: miramos la URL
-        is_announcement = (
-            n.type == Notification.TYPE_ANNOUNCEMENT
-            or (not n.type and (n.url or "").startswith("/avisos"))
-        )
-        is_incident = (
-            n.type == Notification.TYPE_INCIDENT
-            or (not n.type and (n.url or "").startswith("/incidencias"))
-        )
-
-        if is_announcement:
-            title = "Se ha publicado un nuevo aviso"
-            summary = "Revisa los avisos para estar al día con la junta."
-        elif is_incident:
-            title = "Se ha registrado una nueva incidencia"
-            summary = "Revisa las incidencias para estar al tanto de todo."
-        else:
-            # Fallback genérico (para notificaciones antiguas u otros tipos)
-            title = "Notificación"
-            summary = n.message or ""
-
         notifications_recent.append(
             {
-                "title": title,
-                "summary": summary,
+                "type": n.type,
+                "message": n.message,
                 "url": n.url or "#",
+                "is_important": getattr(n, "is_important", False),
             }
         )
 
@@ -163,4 +136,7 @@ def notifications(request):
         "notifications_unread_count": unread_count,
         "notifications_recent": notifications_recent,
     }
+
+
+
 

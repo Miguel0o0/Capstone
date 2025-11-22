@@ -289,6 +289,12 @@ urlpatterns = [
         PaymentReviewView.as_view(),
         name="payment_review",
     ),
+    # Notificaciónes
+    path(
+        "notificaciones/marcar-leidas/",
+        views.NotificationsMarkReadView.as_view(),
+        name="notifications_mark_read",
+    ),
 
 
 ]

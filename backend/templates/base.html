@@ -71,8 +71,8 @@
     position: absolute;
     right: 0;
     margin-top: 0.75rem;
-    width: 600px;         
-    max-height: 600px;     
+    width: 600px;
+    max-height: 600px;
     background-color: #ffffff;
     border-radius: 0.9rem; /* un poco más redondeado */
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.16);
@@ -87,7 +87,7 @@
   .notif-dropdown-header {
     padding: 1rem 1.25rem;   /* más padding */
     font-weight: 600;
-    font-size: 0.95rem;     
+    font-size: 0.95rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 
@@ -126,8 +126,19 @@
     font-size: 0.85rem;
     color: #6b7280;
   }
-</style>
 
+  .notif-chip-important {
+    display: inline-block;
+    margin-right: 0.35rem;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background-color: #fee2e2;
+    color: #b91c1c;
+    text-transform: uppercase;
+  }
+  </style>
 
   {% block extra_head %}{% endblock %}
 </head>
@@ -200,7 +211,6 @@
                 Notificaciones
               </div>
 
-              {# NUEVA LÓGICA: usamos n.type y n.message #}
               {% if notifications_recent %}
                 <ul class="notif-list">
                   {% for n in notifications_recent %}
@@ -215,6 +225,18 @@
                               Se ha publicado un nuevo aviso
                             {% elif n.type == "incident" %}
                               Se ha registrado una nueva incidencia
+                            {% elif n.type == "meeting" %}
+                              Se ha programado una nueva reunión
+                            {% elif n.type == "payment" %}
+                              {% if n.is_important %}
+                                <span class="notif-chip-important">IMPORTANTE</span>
+                              {% endif %}
+                              Nuevo pago pendiente de revisión
+                            {% elif n.type == "subscription" %}
+                              {% if n.is_important %}
+                                <span class="notif-chip-important">IMPORTANTE</span>
+                              {% endif %}
+                              Nueva solicitud de inscripción
                             {% else %}
                               Notificación
                             {% endif %}
@@ -237,14 +259,15 @@
                   No tienes notificaciones nuevas.
                 </div>
               {% endif %}
-            </div>
-          </div>
+            </div> <!-- /notif-dropdown -->
+          </div> <!-- /notif-wrapper -->
 
           <!-- Botón Cerrar sesión -->
           <form action="{% url 'logout' %}" method="post" style="display:inline;">
             {% csrf_token %}
             <button type="submit" class="btn btn-outline">Cerrar sesión</button>
           </form>
+
         {% else %}
           <a class="btn btn-outline" href="{% url 'core:insc_create' %}">Quiero unirme</a>
           <a class="btn btn-primary" href="{% url 'login' %}">Iniciar sesión</a>
@@ -276,14 +299,15 @@
           <h3 class="footer-brand-title">Junta de Vecinos UT</h3>
           <p class="footer-brand-text">
             Espacio de participación y apoyo para vecinas y vecinos de la comunidad.
-            Aquí podrás mantenerte informado, gestionar tus reservas y mantener al dia.
+            Aquí podrás mantenerte informado, gestionar tus reservas y mantener al día.
+          </p>
         </div>
       </div>
 
       <!-- Columna centro: mapa -->
       <div class="footer-map">
         <iframe
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1663.3896888261488!2d-70.63664633730734!3d-33.50711671620544!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9662dabd13744667%3A0xb25ac57d8ab7fa80!2sDiego%20de%20Meza%205431%2C%208960425%20San%20Joaqu%C3%ADn%2C%20Regi%C3%B3n%20Metropolitana!5e0!3m2!1ses!2scl!4v1763415701685!5m2!1ses!2scl" 
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1663.3896888261488!2d-70.63664633730734!3d-33.50711671620544!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9662dabd13744667%3A0xb25ac57d8ab7fa80!2sDiego%20de%20Meza%205431%2C%208960425%20San%20Joaqu%C3%ADn%2C%20Regi%C3%B3n%20Metropolitana!5e0!3m2!1ses!2scl!4v1763415701685!5m2!1ses!2scl"
           width="360"
           height="220"
           style="border:0;"
@@ -315,10 +339,53 @@
 
       if (!bell || !dropdown) return;
 
+      // Helper para obtener el CSRF desde la cookie
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+          const cookies = document.cookie.split(";");
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            // Does this cookie string begin with the name we want?
+            if (cookie.substring(0, name.length + 1) === (name + "=")) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+
+      const csrftoken = getCookie("csrftoken");
+      let alreadyMarked = false;  // para no spamear el endpoint
+
       // Abrir/cerrar al hacer click en la campana
       bell.addEventListener("click", function (e) {
         e.stopPropagation();
         dropdown.classList.toggle("hidden");
+
+        // Si se acaba de abrir y aún no hemos marcado como leídas
+        if (!dropdown.classList.contains("hidden") && !alreadyMarked) {
+          fetch("{% url 'core:notifications_mark_read' %}", {
+            method: "POST",
+            headers: {
+              "X-CSRFToken": csrftoken,
+              "X-Requested-With": "XMLHttpRequest",
+            },
+          })
+          .then(function (resp) { return resp.json(); })
+          .then(function () {
+            alreadyMarked = true;
+            // Ocultar el badge rojo
+            const badge = document.querySelector(".notif-badge");
+            if (badge) {
+              badge.remove();
+            }
+          })
+          .catch(function (err) {
+            console.error("Error marcando notificaciones como leídas:", err);
+          });
+        }
       });
 
       // Cerrar al hacer click fuera

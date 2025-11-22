@@ -101,6 +101,15 @@ class Meeting(models.Model):
     tema = models.CharField(max_length=200)
     creado_en = models.DateTimeField(auto_now_add=True)
 
+    # NUEVO: quién creó la reunión
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="meetings_created",
+    )
+
     class Meta:
         ordering = ["-fecha"]
 
@@ -975,12 +984,19 @@ class InscriptionEvidence(models.Model):
         return f"Inscripción #{self.pk} - {self.get_status_display()} - {self.full_name}"
 
 class Notification(models.Model):
+    # Tipos de notificación
     TYPE_ANNOUNCEMENT = "announcement"
     TYPE_INCIDENT = "incident"
+    TYPE_MEETING = "meeting"
+    TYPE_PAYMENT = "payment"
+    TYPE_SUBSCRIPTION = "subscription"  # inscripciones
 
     TYPE_CHOICES = [
         (TYPE_ANNOUNCEMENT, "Aviso"),
         (TYPE_INCIDENT, "Incidencia"),
+        (TYPE_MEETING, "Reunión"),
+        (TYPE_PAYMENT, "Pago"),
+        (TYPE_SUBSCRIPTION, "Inscripción"),
     ]
 
     user = models.ForeignKey(
@@ -996,11 +1012,17 @@ class Notification(models.Model):
         help_text="URL a donde llevamos al usuario al hacer clic en la notificación",
     )
     is_read = models.BooleanField(default=False)
+
+    # Nueva bandera de prioridad (para pagos e inscripciones importantes)
+    is_important = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        # Primero las importantes, luego por fecha de creación (más recientes arriba)
+        ordering = ["-is_important", "-created_at"]
 
-
+    def __str__(self):
+        return f"Notificación({self.user}, {self.type}, importante={self.is_important})"
 
 
