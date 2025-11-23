@@ -773,7 +773,7 @@ class PaymentReviewView(PermissionRequiredMixin, UpdateView):
             else:
                 payment.save()
 
-        # 👇 Igual que arriba, con el tag especial
+        
         messages.success(
             self.request,
             "Pago actualizado correctamente.",
@@ -969,6 +969,7 @@ class PresidentResidentManageView(
         messages.success(
             request,
             f"Acción aplicada sobre «{vecino.nombre}»: cuenta {decision_label}.",
+            extra_tags="popup_resident_updated", 
         )
         return redirect("core:president_residents")
 
@@ -2324,6 +2325,7 @@ class InscriptionCreateView(CreateView):
         messages.success(
             self.request,
             "Tu solicitud fue enviada. La Junta revisará tu documento para validar tu domicilio.",
+            extra_tags="popup_inscription_public_sent",
         )
         return super().form_valid(form)
 

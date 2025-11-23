@@ -1,9 +1,6 @@
 from django.conf import settings
 from django.urls import reverse
 
-# Si prefieres evitar posibles imports circulares,
-# puedes mover el import de Notification dentro de la
-# función `notifications`, no hay problema.
 from .models import Notification
 
 
@@ -86,11 +83,11 @@ def nav_items(request):
                 }
             )
 
-        # "Subir documento" SOLO Presidente (y superuser)
-        if (u.is_superuser or is_president) and u.has_perm("core.add_document"):
-            items.append(
-                {"label": "Subir documento", "url": reverse("core:documents-create")}
-            )
+        # ⬇️ AQUÍ ESTABA el ítem "Subir documento", ya lo quitamos ⬇️
+        # if (u.is_superuser or is_president) and u.has_perm("core.add_document"):
+        #     items.append(
+        #         {"label": "Subir documento", "url": reverse("core:documents-create")}
+        #     )
 
     # ---- Presidencia (gestión de vecinos)
     if (u.is_superuser or is_president) and u.has_perm("core.view_resident"):
@@ -99,6 +96,7 @@ def nav_items(request):
         )
 
     return {"nav_items": items}
+
 
 def notifications(request):
     if not request.user.is_authenticated:
@@ -116,8 +114,6 @@ def notifications(request):
     )
 
     unread_count = base_qs.count()
-
-    # hasta 10 más recientes
     recent_qs = list(base_qs[:10])
 
     notifications_recent = []
@@ -136,7 +132,3 @@ def notifications(request):
         "notifications_unread_count": unread_count,
         "notifications_recent": notifications_recent,
     }
-
-
-
-

@@ -13,7 +13,7 @@
       o rechazada.
     </p>
 
-    <form method="post" enctype="multipart/form-data" class="auth-form">
+    <form method="post" enctype="multipart/form-data" class="auth-form" id="insc-create-form">
       {% csrf_token %}
 
       <!-- Nombre -->
@@ -123,4 +123,71 @@
     </form>
   </div>
 </div>
+
+{# Toast superior para confirmar envío de inscripción #}
+<div id="insc-toast" class="insc-toast"></div>
+
+<style>
+  .insc-toast {
+    position: fixed;
+    left: 50%;
+    top: 18px;
+    transform: translateX(-50%) translateY(-20px);
+    background: #2210beff;
+    color: #f9fafb;
+    padding: 0.6rem 1.4rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1300;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .insc-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+
+<script>
+  (function () {
+    const form  = document.getElementById("insc-create-form");
+    const toast = document.getElementById("insc-toast");
+
+    if (!form || !toast) return;
+
+    function showToast(message, callback) {
+      toast.textContent = message;
+      toast.classList.add("is-visible");
+
+      setTimeout(function () {
+        toast.classList.remove("is-visible");
+        if (typeof callback === "function") {
+          callback();
+        }
+      }, 1100);
+    }
+
+    function handleSubmit(e) {
+      // Validación HTML5: si falta algo requerido, no mostramos el toast
+      if (typeof form.reportValidity === "function" && !form.reportValidity()) {
+        return;
+      }
+
+      e.preventDefault();
+
+      showToast(
+        "Tu solicitud fue enviada. La Junta revisará tu documento para validar tu domicilio.",
+        function () {
+          form.removeEventListener("submit", handleSubmit);
+          form.submit();
+        }
+      );
+    }
+
+    form.addEventListener("submit", handleSubmit);
+  })();
+</script>
 {% endblock %}

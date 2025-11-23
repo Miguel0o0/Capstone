@@ -20,7 +20,9 @@
 
 <div class="card resident-manage-card">
   <div class="card-body">
-    <h2 class="h5 mb-4">{{ resident.nombre }}</h2>
+    <h2 class="h5 mb-4" style="font-size:1.2rem; font-weight:600;">
+      {{ resident.nombre }}
+    </h2>
 
     <div class="resident-info-list mb-4">
       <p>
@@ -52,9 +54,9 @@
         <span class="resident-info-label">Estado actual:</span>
         <span class="resident-info-value">
           {% if resident.activo %}
-            <span class="badge bg-success">Activo</span>
+            Activo
           {% else %}
-            <span class="badge bg-secondary">Inactivo</span>
+            Inactivo
           {% endif %}
         </span>
       </p>
@@ -79,7 +81,7 @@
             Mensaje para el vecino (opcional)
           </label>
           {{ form.message }}
-          <div class="form-text">
+          <div class="form-text" style="margin-top:.35rem; color:#6b7280; font-size:.85rem;">
             Este mensaje se enviará por correo junto con la acción aplicada.
           </div>
         </div>
@@ -91,4 +93,152 @@
     </form>
   </div>
 </div>
+
+<style>
+  /* Card más centrada y con aire */
+  .resident-manage-card {
+    max-width: 720px;
+    margin: 0 auto 2.5rem auto;
+    border-radius: 18px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+  }
+
+  /* Info del vecino: cada línea “Label: valor” junta */
+  .resident-info-list p {
+    margin-bottom: 0.4rem;
+  }
+
+  .resident-info-label {
+    font-weight: 600;
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin-right: 0.25rem;
+  }
+
+  .resident-info-value {
+    font-size: 0.95rem;
+  }
+
+  /* Layout acción + mensaje */
+  .resident-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: flex-start;
+  }
+
+  .resident-actions-left select {
+    width: 100%;
+  }
+
+  .resident-actions-right textarea {
+    width: 100%;
+    min-height: 110px;
+  }
+
+  .resident-action-btn {
+    border: none;
+    background: #204aa5ff;
+    color: #f9fafb;
+    font-weight: 600;
+    padding: 0.65rem 1.2rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+  }
+
+  .resident-action-btn:hover {
+    background: #16357b;
+    transform: translateY(-1px);
+  }
+
+  .resident-action-btn:active {
+    transform: translateY(0);
+  }
+
+  @media (max-width: 768px) {
+    .resident-actions {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Reutilizamos el estilo de toast que ya usas en inscripciones/pagos */
+  .insc-toast {
+    position: fixed;
+    left: 50%;
+    top: 18px;
+    transform: translateX(-50%) translateY(-20px);
+    background: #2210beff;
+    color: #f9fafb;
+    padding: 0.6rem 1.4rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1300;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .insc-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+
+{# Toast para las acciones del presidente sobre el vecino #}
+<div id="resident-toast" class="insc-toast"></div>
+
+<script>
+  (function () {
+    const form        = document.querySelector(".resident-manage-form");
+    const actionField = document.getElementById("id_action");
+    const toastEl     = document.getElementById("resident-toast");
+
+    if (!form || !actionField || !toastEl) return;
+
+    function showToast(message, callback) {
+      toastEl.textContent = message;
+      toastEl.classList.add("is-visible");
+
+      setTimeout(function () {
+        toastEl.classList.remove("is-visible");
+        if (typeof callback === "function") {
+          callback();
+        }
+      }, 1100);
+    }
+
+    function handleSubmit(e) {
+      const selected = actionField.options[actionField.selectedIndex];
+      if (!selected) return;
+
+      const text = (selected.text || "").toLowerCase();
+      let message = null;
+
+      if (text.includes("baja")) {
+        message = "Vecino dado de baja. Se enviará un correo con la información.";
+      } else if (text.includes("activar")) {
+        message = "Cuenta del vecino activada. Se enviará un correo con la actualización.";
+      } else if (text.includes("eliminar")) {
+        message = "Cuenta del vecino eliminada. Se notificará por correo.";
+      }
+
+      if (!message) {
+        return;
+      }
+
+      e.preventDefault();
+
+      showToast(message, function () {
+        form.removeEventListener("submit", handleSubmit);
+        form.submit();
+      });
+    }
+
+    form.addEventListener("submit", handleSubmit);
+  })();
+</script>
 {% endblock %}
