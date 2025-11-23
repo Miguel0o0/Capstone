@@ -44,8 +44,19 @@
       {% for obj in object_list %}
         <tr>
           <td>#{{ obj.id }}</td>
+
           <td>
-            <a href="{{ obj.file.url }}" target="_blank" rel="noopener">Ver archivo</a>
+            {% if obj.file %}
+              <button
+                type="button"
+                class="btn btn-outline btn-small js-insc-view-file"
+                data-file-url="{{ obj.file.url }}"
+              >
+                Ver archivo
+              </button>
+            {% else %}
+              <span style="color:#9ca3af; font-size:.85rem;">Sin archivo</span>
+            {% endif %}
           </td>
 
           {# Enviado por: nombre + email #}
@@ -71,7 +82,9 @@
               <span class="badge bg-danger">Rechazada</span>
             {% endif %}
           </td>
+
           <td>{{ obj.created_at|date:"d/m/Y H:i" }}</td>
+
           <td>
             <a class="btn btn-outline btn-sm" href="{% url 'core:insc_manage' obj.id %}">
               Gestionar
@@ -111,4 +124,145 @@
     </nav>
   {% endif %}
 </div>
+
+{# ================= POP-UP VER ARCHIVO (LISTA INSCRIPCIONES) ================= #}
+<style>
+  .insc-file-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+  }
+
+  .insc-file-backdrop.is-visible {
+    display: flex;
+  }
+
+  .insc-file-dialog {
+    background: #ffffff;
+    border-radius: 22px;
+    padding: 1.2rem 1.4rem;
+    width: 96%;
+    max-width: 1400px;
+    max-height: 92vh;
+    box-shadow: 0 22px 55px rgba(15, 23, 42, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .insc-file-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .insc-file-title {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .insc-file-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #6b7280;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+  }
+
+  .insc-file-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .insc-file-body {
+    flex: 1;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    background: #111827;
+    height: 70vh;       /* alto grande */
+    max-height: 86vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .insc-file-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+</style>
+
+<div id="insc-file-backdrop" class="insc-file-backdrop">
+  <div class="insc-file-dialog">
+    <div class="insc-file-header">
+      <div class="insc-file-title">
+        Archivo de inscripción
+      </div>
+      <button type="button" id="insc-file-close" class="insc-file-close">
+        Cerrar
+      </button>
+    </div>
+
+    <div class="insc-file-body">
+      <img
+        id="insc-file-img"
+        class="insc-file-img"
+        src=""
+        alt="Archivo de inscripción"
+      >
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const backdrop = document.getElementById("insc-file-backdrop");
+    const img      = document.getElementById("insc-file-img");
+    const closeBtn = document.getElementById("insc-file-close");
+
+    if (!backdrop || !img) return;
+
+    // Botones "Ver archivo" de la tabla
+    document.querySelectorAll(".js-insc-view-file").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const url = this.getAttribute("data-file-url");
+        if (!url) return;
+
+        img.src = url;
+        backdrop.classList.add("is-visible");
+      });
+    });
+
+    function closePopup() {
+      backdrop.classList.remove("is-visible");
+      img.src = "";
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", closePopup);
+    }
+
+    backdrop.addEventListener("click", function (e) {
+      if (e.target === backdrop) {
+        closePopup();
+      }
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && backdrop.classList.contains("is-visible")) {
+        closePopup();
+      }
+    });
+  })();
+</script>
 {% endblock %}

@@ -2,6 +2,60 @@
 
 {% block content %}
 
+{# --- POP-UPS (aviso creado / editado) --- #}
+{% if messages %}
+  {% for m in messages %}
+    {% if "popup_announcement_created" in m.tags or "popup_announcement_updated" in m.tags %}
+      <div id="announcement-popup-backdrop" style="
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      ">
+        <div style="
+          background: #ffffff;
+          border-radius: 1.25rem;
+          padding: 1.75rem 2rem;
+          max-width: 440px;
+          width: 90%;
+          text-align: center;
+          box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+        ">
+          <h2 style="font-size: 1.1rem; margin-bottom: .5rem;">
+            {% if "popup_announcement_created" in m.tags %}
+              Aviso publicado correctamente
+            {% elif "popup_announcement_updated" in m.tags %}
+              Cambios guardados correctamente
+            {% else %}
+              Acción realizada correctamente
+            {% endif %}
+          </h2>
+          <p style="font-size:.9rem; color:#4b5563; margin-bottom:1.25rem;">
+            {{ m }}
+          </p>
+          <button type="button"
+                  onclick="document.getElementById('announcement-popup-backdrop').style.display='none';"
+                  style="
+                    padding:.55rem 1.4rem;
+                    border-radius:999px;
+                    border:none;
+                    background:#2563eb;
+                    color:#ffffff;
+                    font-size:.9rem;
+                    font-weight:600;
+                    cursor:pointer;
+                  ">
+            Entendido
+          </button>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
 <div class="page-header"
      style="display:flex; justify-content:space-between; align-items:flex-start; gap:2rem; margin-bottom:1.5rem;">
   <div>
@@ -51,8 +105,19 @@
             {{ aviso.cuerpo|truncatechars:220 }}
           </p>
 
-          <a href="{% url 'core:announcement_detail' aviso.pk %}" class="small">
-            Ver detalle →
+          {# Link estilo "botón pill" para Ver detalle #}
+          <a href="{% url 'core:announcement_detail' aviso.pk %}"
+             class="btn btn-outline btn-small"
+             style="
+               display:inline-flex;
+               align-items:center;
+               gap:.25rem;
+               padding:.3rem .9rem;
+               border-radius:999px;
+               font-size:.8rem;
+             ">
+            Ver detalle
+            <span style="font-size:1rem; line-height:1;">→</span>
           </a>
         </div>
       </article>

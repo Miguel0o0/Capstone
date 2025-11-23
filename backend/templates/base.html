@@ -275,12 +275,16 @@
       </div>
     </nav>
 
+    {# ---- MENSAJES FLASH (ocultando los de pop-ups) ---- #}
     {% if messages %}
       <div class="messages" style="margin:.5rem 1rem;">
         {% for m in messages %}
-          <div class="msg {{ m.tags }}" style="padding:.4rem .6rem; border:1px solid #cfe3ff; background:#f3f8ff; margin-bottom:.3rem;">
-            {{ m }}
-          </div>
+          {# Ocultamos los mensajes usados solo para pop-ups #}
+          {% if "popup_incident_created" not in m.tags and "popup_receipt_uploaded" not in m.tags and "popup_announcement_created" not in m.tags and "popup_announcement_updated" not in m.tags and "popup_inscription_approved" not in m.tags and "popup_inscription_rejected" not in m.tags and "popup_inscription_updated" not in m.tags and "popup_payment_updated" not in m.tags%}
+            <div class="msg {{ m.tags }}" style="padding:.4rem .6rem; border:1px solid #cfe3ff; background:#f3f8ff; margin-bottom:.3rem;">
+              {{ m }}
+            </div>
+          {% endif %}
         {% endfor %}
       </div>
     {% endif %}
@@ -346,7 +350,6 @@
           const cookies = document.cookie.split(";");
           for (let i = 0; i < cookies.length; i++) {
             const cookie = cookies[i].trim();
-            // Does this cookie string begin with the name we want?
             if (cookie.substring(0, name.length + 1) === (name + "=")) {
               cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
               break;

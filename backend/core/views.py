@@ -51,7 +51,7 @@ from .forms import (
     ReservationCancelForm,
     PaymentReviewForm,
     PaymentReviewForm,
-    PaymentReceiptUploadForm
+    PaymentReceiptForm
 )
 from .models import (
     Announcement,
@@ -303,26 +303,50 @@ class AnnouncementDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "aviso"
 
 
-class AnnouncementCreateView(
-    LoginRequiredMixin, IsAnnouncementManagerMixin, CreateView
-):
+from django.contrib import messages
+
+class AnnouncementCreateView(PermissionRequiredMixin, CreateView):
     model = Announcement
     form_class = AnnouncementForm
     template_name = "core/announcement/announcement_form.html"
-    success_url = reverse_lazy("core:announcement_list")
+    permission_required = "core.add_announcement"
 
     def form_valid(self, form):
         form.instance.creado_por = self.request.user
-        return super().form_valid(form)
+
+        response = super().form_valid(form)
+
+        messages.success(
+            self.request,
+            "Aviso publicado con éxito. Los vecinos ya pueden ver el nuevo aviso publicado.",
+            extra_tags="popup_announcement_created",
+        )
+
+        return response
+
+    def get_success_url(self):
+        return reverse("core:announcement_list")
 
 
-class AnnouncementUpdateView(
-    LoginRequiredMixin, IsAnnouncementManagerMixin, UpdateView
-):
+
+
+class AnnouncementUpdateView(PermissionRequiredMixin, UpdateView):
+    permission_required = "core.change_announcement"
     model = Announcement
     form_class = AnnouncementForm
     template_name = "core/announcement/announcement_form.html"
+
+    # A dónde volver después de guardar
     success_url = reverse_lazy("core:announcement_list")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Cambios guardados con éxito.",
+            extra_tags="popup_announcement_updated",
+        )
+        return response
 
 class AnnouncementDeleteView(
     LoginRequiredMixin, IsAnnouncementManagerMixin, DeleteView
@@ -496,16 +520,39 @@ class PaymentListAdminView(
         )
 
         return ctx
+    
+@xframe_options_exempt
+def payment_receipt_preview(request, pk):
+    """
+    Vista simple que se embebe en un <iframe> para ver el comprobante.
+    No envía cabecera X-Frame-Options para que no se bloquee.
+    """
+    payment = get_object_or_404(Payment, pk=pk)
 
-class MyPaymentsView(LoginRequiredMixin, ListView):
+    return render(
+        request,
+        "core/payment/payment_receipt_preview.html",
+        {"payment": payment},
+    )
+
+class MyPaymentsView(NavItemsMixin, LoginRequiredMixin, ListView):
     template_name = "core/payment/payment_list_mine.html"
     context_object_name = "payments"
 
     def get_queryset(self):
-        return Payment.objects.filter(
-            resident=self.request.user,
-            status=Payment.STATUS_PENDING,
-        ).order_by("-created_at")
+        user = self.request.user
+        return (
+            Payment.objects
+            .filter(
+                resident=user,
+                status__in=[
+                    Payment.STATUS_PENDING,
+                    Payment.STATUS_PENDING_REVIEW,
+                ],
+            )
+            .select_related("reservation", "fee")
+            .order_by("-created_at")
+        )
 
 
 class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, FormView):
@@ -563,54 +610,61 @@ class PaymentReviewAdminView(PermissionRequiredMixin, UpdateView):
     permission_required = "core.change_payment"
     model = Payment
     form_class = PaymentReviewForm
-    template_name = "core/payment/review.html"  # <-- carpeta + archivo correcto
+    template_name = "core/payment/review.html"
 
     def get_queryset(self):
-        # Si quieres ver todos los pagos:
         return Payment.objects.all()
-        # (más adelante se puede filtrar por estado si quieres)
 
     def form_valid(self, form):
+        from django.utils import timezone
+
         payment = form.save(commit=False)
+        previous_status = Payment.objects.get(pk=payment.pk).status
 
-        # Si lo marcan como pagado:
+        payment.reviewed_by = self.request.user
+        payment.reviewed_at = timezone.now()
+
+        # --- CASO 1: APROBADO (Pagado) ---
         if payment.status == Payment.STATUS_PAID:
-            # Método helper del modelo (si lo tienes)
-            if hasattr(payment, "mark_as_paid"):
-                payment.mark_as_paid(
-                    review_comment=form.cleaned_data.get("review_comment", ""),
-                    staff_user=self.request.user,
-                )
-            else:
-                # Versión explícita por si no tienes mark_as_paid
-                from django.utils import timezone
-
-                payment.review_comment = form.cleaned_data.get("review_comment", "")
-                payment.reviewed_by = self.request.user
-                payment.reviewed_at = timezone.now()
+            if payment.paid_at is None:
                 payment.paid_at = timezone.now()
-                payment.save(
-                    update_fields=[
-                        "status",
-                        "review_comment",
-                        "reviewed_by",
-                        "reviewed_at",
-                        "paid_at",
-                    ]
-                )
-        else:
-            # Cualquier otro estado (pending, pending_review, cancelled)
-            payment.review_comment = form.cleaned_data.get("review_comment", "")
-            if not payment.reviewed_by:
-                from django.utils import timezone
 
-                payment.reviewed_by = self.request.user
-                payment.reviewed_at = timezone.now()
-            payment.save(
-                update_fields=["status", "review_comment", "reviewed_by", "reviewed_at"]
+            payment.save()
+
+            Notification.objects.create(
+                user=payment.resident,
+                type=Notification.TYPE_PAYMENT,
+                message="Tu pago fue aprobado. Ya puedes hacer otra reserva.",
+                url=reverse("core:my_payments"),
+                is_important=False,
             )
 
-        messages.success(self.request, "Pago actualizado correctamente.")
+        # --- CASO 2: NO APROBADO (rechazado) ---
+        else:
+            if previous_status == Payment.STATUS_PENDING_REVIEW:
+                payment.status = Payment.STATUS_PENDING
+                payment.receipt_file = None
+                payment.receipt_uploaded_at = None
+
+                payment.save()
+
+                Notification.objects.create(
+                    user=payment.resident,
+                    type=Notification.TYPE_PAYMENT,
+                    message=(
+                        "Tu pago fue rechazado. Intenta nuevamente subiendo un nuevo comprobante."
+                    ),
+                    url=reverse("core:my_payments"),
+                    is_important=False,
+                )
+            else:
+                payment.save()
+
+        messages.success(
+            self.request,
+            "Pago actualizado correctamente.",
+            extra_tags="popup_payment_updated",
+        )
         return redirect("core:payment_list_admin")
 
 
@@ -624,37 +678,49 @@ class PaymentDeleteAdminView(LoginRequiredMixin, PermissionRequiredMixin, Delete
     
 class PaymentReceiptUploadView(LoginRequiredMixin, UpdateView):
     model = Payment
-    form_class = PaymentReceiptUploadForm
+    form_class = PaymentReceiptForm
     template_name = "core/payment/payment_receipt_form.html"
 
     def get_queryset(self):
-        # Solo permitir subir comprobante de pagos PENDIENTES del usuario
-        return Payment.objects.filter(
-            resident=self.request.user,
-            status=Payment.STATUS_PENDING,
-        )
+        # Por seguridad, solo puede subir comprobante el dueño del pago
+        return Payment.objects.filter(resident=self.request.user)
 
     def form_valid(self, form):
-        obj = form.save(commit=False)
-        obj.receipt_uploaded_at = timezone.now()
-        obj.status = Payment.STATUS_PENDING_REVIEW  # 👈 importante
-        obj.save()
+        # Aseguramos que venga archivo, y si no, mostramos error
+        receipt = form.cleaned_data.get("receipt_file")
+        if not receipt:
+            form.add_error("receipt_file", "Debes subir el comprobante.")
+            return self.form_invalid(form)
 
+        payment = form.save(commit=False)
+
+        payment.status = Payment.STATUS_PENDING_REVIEW
+        payment.receipt_uploaded_at = timezone.now()
+
+        payment.save(
+            update_fields=[
+                "receipt_file",
+                "status",
+                "receipt_uploaded_at",
+            ]
+        )
+
+        # Mensaje + tag especial para el pop-up
         messages.success(
             self.request,
-            "Comprobante subido correctamente. El tesorero revisará tu pago.",
+            "Comprobante subido con éxito, ahora debes esperar a que se valide tu pago para hacer otra reserva.",
+            extra_tags="popup_receipt_uploaded",
         )
+
         return redirect("core:my_payments")
     
 class PaymentReviewView(PermissionRequiredMixin, UpdateView):
     permission_required = "core.change_payment"
     model = Payment
     form_class = PaymentReviewForm
-    # usamos el template que está en la carpeta payment
     template_name = "core/payment/review.html"
 
     def get_queryset(self):
-        # aquí ves todos los pagos; si quieres filtrar por estado, lo haces acá
         return Payment.objects.all()
 
     def form_valid(self, form):
@@ -662,27 +728,60 @@ class PaymentReviewView(PermissionRequiredMixin, UpdateView):
 
         payment = form.save(commit=False)
 
+        # estado anterior en BD (para saber si venía de pending_review)
+        previous_status = Payment.objects.get(pk=payment.pk).status
+
         # registrar quién revisó y cuándo
         payment.reviewed_by = self.request.user
         payment.reviewed_at = timezone.now()
 
-        # si lo marcan como pagado y no tenía fecha de pago, la seteamos
-        if payment.status == Payment.STATUS_PAID and payment.paid_at is None:
-            payment.paid_at = timezone.now()
-        # si prefieres que al marcarlo como pendiente se borre la fecha de pago:
-        # elif payment.status != Payment.STATUS_PAID:
-        #     payment.paid_at = None
+        # --- CASO 1: APROBADO (Pagado) ---
+        if payment.status == Payment.STATUS_PAID:
+            if payment.paid_at is None:
+                payment.paid_at = timezone.now()
 
-        payment.save(update_fields=[
-            "status",
-            "review_comment",
-            "reviewed_by",
-            "reviewed_at",
-            "paid_at",
-        ])
+            payment.save()
 
-        messages.success(self.request, "Pago actualizado correctamente.")
+            # Notificación al vecino: pago aprobado
+            Notification.objects.create(
+                user=payment.resident,
+                type=Notification.TYPE_PAYMENT,
+                message="Tu pago fue aprobado. Ya puedes hacer otra reserva.",
+                url=reverse("core:my_payments"),
+                is_important=False,
+            )
+
+        # --- CASO 2: NO APROBADO (rechazado) ---
+        else:
+            if previous_status == Payment.STATUS_PENDING_REVIEW:
+                payment.status = Payment.STATUS_PENDING
+                payment.receipt_file = None
+                payment.receipt_uploaded_at = None
+
+                payment.save()
+
+                # Notificación al vecino: pago rechazado
+                Notification.objects.create(
+                    user=payment.resident,
+                    type=Notification.TYPE_PAYMENT,
+                    message=(
+                        "Tu pago fue rechazado. Intenta nuevamente subiendo un nuevo comprobante."
+                    ),
+                    url=reverse("core:my_payments"),
+                    is_important=False,
+                )
+            else:
+                payment.save()
+
+        # 👇 Igual que arriba, con el tag especial
+        messages.success(
+            self.request,
+            "Pago actualizado correctamente.",
+            extra_tags="popup_payment_updated",
+        )
         return redirect("core:payment_list_admin")
+
+
     
 # Pagos – vista para que los perfiles de gestión suban su propio comprobante
 class MyPaymentsForStaffView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -1806,20 +1905,36 @@ class IncidentListMineView(NavItemsMixin, LoginRequiredMixin, ListView):
         return qs.order_by("-created_at")
 
 
-class IncidentCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
-    """
-    Vecino: formulario simplificado.
-    """
+from django.contrib import messages
+# ... el resto de imports que ya tienes ...
 
+
+class IncidentCreateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView
+):
+    permission_required = "core.add_incident"
     model = Incident
-    form_class = IncidentResidentForm
     template_name = "core/incidents/form_resident.html"
+    fields = ["categoria", "titulo", "descripcion", "foto"]  # o tu form_class si usas formulario
+
     success_url = reverse_lazy("core:incident_mine")
 
     def form_valid(self, form):
+        # Guardar quién reportó la incidencia
         form.instance.reportado_por = self.request.user
-        messages.success(self.request, "Incidencia reportada. ¡Gracias por avisar!")
-        return super().form_valid(form)
+
+        # Guardar la incidencia normalmente
+        response = super().form_valid(form)
+
+        # Mensaje para el pop-up (nota: usamos una tag especial)
+        messages.success(
+            self.request,
+            "Incidencia publicada con éxito. Los demás usuarios ya pueden ver tu incidencia reportada.",
+            extra_tags="popup_incident_created",
+        )
+
+        return response
+
 
 
 class IncidentListAdminView(
@@ -2234,21 +2349,46 @@ class InscriptionEvidenceManageView(PermissionRequiredMixin, UpdateView):
     def form_valid(self, form):
         obj: InscriptionEvidence = self.get_object()
         status = form.cleaned_data["status"]
-        role_code = form.cleaned_data.get("role") or None   # 👈 IMPORTANTE
+        role_code = form.cleaned_data.get("role") or None
         note = form.cleaned_data.get("note", "")
 
+        # --- LÓGICA DE NEGOCIO (igual que antes) ---
         if status == InscriptionEvidence.Status.APPROVED:
             obj.approve(user=self.request.user, note=note, role_code=role_code)
+
+            # Mensaje para popup "aprobado"
+            messages.success(
+                self.request,
+                "Usuario agregado con éxito. Se enviarán las credenciales del nuevo usuario al correo que indicó.",
+                extra_tags="popup_inscription_approved",
+            )
+
         elif status == InscriptionEvidence.Status.REJECTED:
             obj.reject(user=self.request.user, note=note)
+
+            # Mensaje para popup "rechazado"
+            messages.info(
+                self.request,
+                "Solicitud rechazada. Se enviará un correo al usuario notificando que su solicitud fue rechazada.",
+                extra_tags="popup_inscription_rejected",
+            )
+
         else:
+            # Lo dejamos como pendiente, pero igual registramos quién lo revisó
             obj.status = InscriptionEvidence.Status.PENDING
             obj.validated_by = self.request.user
             obj.validated_at = timezone.now()
             obj.note = note
             obj.save()
 
-        messages.success(self.request, "Inscripción actualizada.")
+            # Mensaje genérico para otros cambios
+            messages.success(
+                self.request,
+                "Inscripción actualizada correctamente.",
+                extra_tags="popup_inscription_updated",
+            )
+
+        # Volvemos al listado de inscripciones
         return redirect("core:insc_admin")
     
 # ---------------------------------------------

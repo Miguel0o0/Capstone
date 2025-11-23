@@ -154,6 +154,7 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",  # ahora apunta a backend/static
 ]
 
+X_FRAME_OPTIONS = "SAMEORIGIN"
 
 # Para producción más adelante usaremos STATIC_ROOT y WhiteNoise (otro issue)
 # STATIC_ROOT = BASE_DIR / "staticfiles"

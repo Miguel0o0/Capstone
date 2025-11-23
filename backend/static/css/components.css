@@ -804,3 +804,50 @@
     letter-spacing: 0.03em;
   }
 
+  .incident-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-incident {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.32rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
+}
+
+.btn-incident-edit {
+  background-color: #e0edff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.btn-incident-edit:hover {
+  background-color: #d0e2ff;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
+  transform: translateY(-1px);
+}
+
+.btn-incident-delete {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.btn-incident-delete:hover {
+  background-color: #fee2e2;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.35);
+  transform: translateY(-1px);
+}
+

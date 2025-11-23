@@ -195,18 +195,24 @@ class PaymentReviewForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["status"].label = "Estado del pago"
-        self.fields["review_comment"].label = "Comentario para el vecino"
-        self.fields["review_comment"].required = False
 
+        # Opciones permitidas en la revisión
+        allowed = [
+            (Payment.STATUS_PENDING_REVIEW, "Pendiente de revisión"),
+            (Payment.STATUS_PAID, "Aceptado"),
+            (Payment.STATUS_CANCELLED, "Rechazado"),
+        ]
+        self.fields["status"].choices = allowed
         
 class PaymentReceiptForm(forms.ModelForm):
     class Meta:
         model = Payment
         fields = ["receipt_file"]
-        labels = {
-            "receipt_file": "Comprobante de transferencia",
-        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["receipt_file"].required = True
+        self.fields["receipt_file"].help_text = "Sube el comprobante en formato PDF, JPG o PNG."
 
 
 

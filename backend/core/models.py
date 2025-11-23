@@ -177,7 +177,7 @@ class Payment(models.Model):
         (STATUS_PENDING, "Pendiente"),
         (STATUS_PENDING_REVIEW, "Pendiente de revisión"),
         (STATUS_PAID, "Pagado"),
-        (STATUS_CANCELLED, "Cancelado"),
+        (STATUS_CANCELLED, "Rechazado"),
     )
 
     # --------- Origen ----------

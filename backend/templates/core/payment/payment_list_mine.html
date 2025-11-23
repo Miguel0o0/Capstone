@@ -5,6 +5,46 @@
 {% block title %}Mis pagos{% endblock %}
 
 {% block content %}
+
+{# --- POP-UP COMPROBANTE SUBIDO --- #}
+{% if messages %}
+  {% for m in messages %}
+    {% if "popup_receipt_uploaded" in m.tags %}
+      <div id="payment-popup-backdrop" style="
+           position:fixed;
+           inset:0;
+           background:rgba(15,23,42,0.55);
+           display:flex;
+           align-items:center;
+           justify-content:center;
+           z-index:50;">
+        <div style="
+             background:#fff;
+             border-radius:18px;
+             padding:1.8rem 2.2rem;
+             max-width:420px;
+             width:100%;
+             box-shadow:0 20px 60px rgba(15,23,42,0.35);
+             text-align:center;">
+          <h2 style="font-size:1.1rem; font-weight:700; margin-bottom:.75rem;">
+            Comprobante subido correctamente
+          </h2>
+          <p style="font-size:.9rem; color:#4b5563; margin-bottom:1.5rem;">
+            Comprobante subido con éxito, ahora debes esperar a que se valide tu pago
+            para hacer otra reserva.
+          </p>
+          <button type="button"
+                  id="payment-popup-close"
+                  class="btn btn-primary"
+                  style="min-width:130px;">
+            Entendido
+          </button>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
 <div style="max-width:960px;margin:2.5rem auto 0;">
   <h1 style="text-align:center;margin-bottom:.25rem;">
     {% if user|has_group:"Delegado" %}
@@ -89,4 +129,24 @@
     <p style="text-align:center;color:#9ca3af;">No tienes pagos aún.</p>
   {% endif %}
 </div>
+
+<script>
+  (function() {
+    var backdrop = document.getElementById("payment-popup-backdrop");
+    var closeBtn = document.getElementById("payment-popup-close");
+    if (!backdrop || !closeBtn) return;
+
+    function hidePopup() {
+      backdrop.style.display = "none";
+    }
+
+    closeBtn.addEventListener("click", hidePopup);
+    backdrop.addEventListener("click", function(e) {
+      if (e.target === backdrop) {
+        hidePopup();
+      }
+    });
+  })();
+</script>
+
 {% endblock %}
