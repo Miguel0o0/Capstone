@@ -4,6 +4,96 @@
 {% block title %}Mis incidencias{% endblock %}
 
 {% block content %}
+
+{# ======================= POP-UP INCIDENCIA CREADA ======================= #}
+{% if messages %}
+  {% for m in messages %}
+    {% if "popup_incident_created" in m.tags %}
+      <style>
+        .popup-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(15, 23, 42, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .popup-dialog {
+          background: #ffffff;
+          border-radius: 18px;
+          padding: 1.75rem 2rem;
+          max-width: 480px;
+          width: 100%;
+          box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+          text-align: center;
+        }
+
+        .popup-title {
+          font-size: 1.3rem;
+          font-weight: 700;
+          margin-bottom: 0.75rem;
+        }
+
+        .popup-text {
+          font-size: 0.95rem;
+          color: #4b5563;
+          margin-bottom: 1.5rem;
+        }
+
+        .popup-button {
+          padding: 0.55rem 1.4rem;
+          border-radius: 999px;
+          border: none;
+          background: #2563eb;
+          color: #ffffff;
+          font-size: 0.9rem;
+          font-weight: 500;
+          cursor: pointer;
+        }
+
+        .popup-button:hover {
+          background: #1d4ed8;
+        }
+      </style>
+
+      <div id="incident-popup-backdrop" class="popup-backdrop">
+        <div class="popup-dialog">
+          <h2 class="popup-title">Incidencia publicada correctamente</h2>
+          <p class="popup-text">
+            Incidencia publicada con éxito. Los demás usuarios ya pueden ver tu incidencia reportada.
+          </p>
+          <button type="button" id="incident-popup-close" class="popup-button">
+            Entendido
+          </button>
+        </div>
+      </div>
+
+      <script>
+        (function () {
+          const backdrop = document.getElementById("incident-popup-backdrop");
+          const closeBtn = document.getElementById("incident-popup-close");
+          if (!backdrop || !closeBtn) return;
+
+          closeBtn.addEventListener("click", function () {
+            backdrop.style.display = "none";
+          });
+
+          // También cerramos al hacer click fuera del cuadro
+          backdrop.addEventListener("click", function (e) {
+            if (e.target === backdrop) {
+              backdrop.style.display = "none";
+            }
+          });
+        })();
+      </script>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+{# ==================== FIN POP-UP INCIDENCIA CREADA ===================== #}
+
+
 <div style="max-width: 1100px; margin: 2.5rem auto 3rem;">
 
   <!-- Encabezado + botón -->
@@ -21,7 +111,7 @@
   </header>
 
   {% if incidencias %}
-    <!-- Lista de tarjetas (sin viñetas) -->
+    <!-- Lista de tarjetas -->
     <div style="display:flex; flex-direction:column; gap:1rem;">
       {% for i in incidencias %}
         <article class="card"
@@ -59,29 +149,51 @@
               </p>
             {% endif %}
 
-            {# Acciones (editar / eliminar) con la misma lógica que tenías antes #}
-            <div style="margin-top:.5rem; font-size:.85rem;">
+            {# Acciones (Editar / Eliminar) #}
+            <div style="margin-top:.7rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+
+              {# EDITAR #}
               {% if perms.core.change_incident %}
                 {% if user|has_group:"Delegado" or user|has_group:"Secretario" or user|has_group:"Presidente" or user.is_superuser %}
-                  <a href="{% url 'core:incident_update' i.pk %}">Editar</a>
+                  <a href="{% url 'core:incident_update' i.pk %}"
+                     class="btn btn-primary btn-xs">
+                    Editar
+                  </a>
                 {% else %}
                   {% if i.reportado_por == user %}
-                    <a href="{% url 'core:incident_update' i.pk %}">Editar</a>
+                    <a href="{% url 'core:incident_update' i.pk %}"
+                       class="btn btn-primary btn-xs">
+                      Editar
+                    </a>
                   {% endif %}
                 {% endif %}
               {% endif %}
 
+              {# ELIMINAR -> abre popup de confirmación #}
               {% if perms.core.delete_incident %}
                 {% if user|has_group:"Delegado" or user|has_group:"Secretario" or user|has_group:"Presidente" or user.is_superuser %}
-                  {% if perms.core.change_incident %} | {% endif %}
-                  <a href="{% url 'core:incident_delete' i.pk %}">Eliminar</a>
+                  <button
+                    type="button"
+                    class="btn btn-danger btn-xs incident-delete-btn"
+                    data-incident-id="{{ i.pk }}"
+                    data-incident-title="{{ i.titulo }}"
+                    data-delete-url="{% url 'core:incident_delete' i.pk %}">
+                    Eliminar
+                  </button>
                 {% else %}
                   {% if i.reportado_por == user %}
-                    {% if perms.core.change_incident %} | {% endif %}
-                    <a href="{% url 'core:incident_delete' i.pk %}">Eliminar</a>
+                    <button
+                      type="button"
+                      class="btn btn-danger btn-xs incident-delete-btn"
+                      data-incident-id="{{ i.pk }}"
+                      data-incident-title="{{ i.titulo }}"
+                      data-delete-url="{% url 'core:incident_delete' i.pk %}">
+                      Eliminar
+                    </button>
                   {% endif %}
                 {% endif %}
               {% endif %}
+
             </div>
           </div>
         </article>
@@ -93,4 +205,117 @@
     </p>
   {% endif %}
 </div>
+
+{# ====== FORMULARIO OCULTO PARA ENVIAR EL POST DE ELIMINAR ====== #}
+<form id="incident-delete-form" method="post" style="display:none;">
+  {% csrf_token %}
+</form>
+
+{# ====== POP-UP CONFIRMACIÓN ELIMINAR INCIDENCIA ====== #}
+<style>
+  .incident-delete-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.50);
+    display: none;           /* se muestra vía JS */
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+  }
+
+  .incident-delete-dialog {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 1.75rem 2rem;
+    max-width: 480px;
+    width: 100%;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.28);
+    text-align: center;
+  }
+
+  .incident-delete-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: .5rem;
+  }
+
+  .incident-delete-text {
+    font-size: 0.9rem;
+    color: #4b5563;
+    margin-bottom: 1.4rem;
+  }
+
+  .incident-delete-actions {
+    display: flex;
+    justify-content: center;
+    gap: .75rem;
+  }
+</style>
+
+<div id="incident-delete-modal" class="incident-delete-backdrop">
+  <div class="incident-delete-dialog">
+    <h2 class="incident-delete-title">¿Seguro que deseas eliminar esta incidencia?</h2>
+    <p class="incident-delete-text">
+      Esta acción no se puede deshacer.<br>
+      <strong id="incident-delete-title-span"></strong>
+    </p>
+    <div class="incident-delete-actions">
+      <button type="button"
+              id="incident-delete-cancel"
+              class="btn btn-secondary btn-xs">
+        Cancelar
+      </button>
+      <button type="button"
+              id="incident-delete-confirm"
+              class="btn btn-danger btn-xs">
+        Sí, eliminar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const modal = document.getElementById("incident-delete-modal");
+    const titleSpan = document.getElementById("incident-delete-title-span");
+    const cancelBtn = document.getElementById("incident-delete-cancel");
+    const confirmBtn = document.getElementById("incident-delete-confirm");
+    const form = document.getElementById("incident-delete-form");
+
+    let currentDeleteUrl = null;
+
+    // Abrir modal desde botones "Eliminar"
+    document.querySelectorAll(".incident-delete-btn").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        currentDeleteUrl = this.dataset.deleteUrl;
+        const incidentTitle = this.dataset.incidentTitle || "";
+        titleSpan.textContent = incidentTitle ? `"${incidentTitle}"` : "";
+        modal.style.display = "flex";
+      });
+    });
+
+    // Cerrar con Cancelar
+    cancelBtn.addEventListener("click", function () {
+      modal.style.display = "none";
+      currentDeleteUrl = null;
+    });
+
+    // Cerrar al hacer click fuera del cuadro
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) {
+        modal.style.display = "none";
+        currentDeleteUrl = null;
+      }
+    });
+
+    // Confirmar eliminación -> enviar POST al DeleteView
+    confirmBtn.addEventListener("click", function () {
+      if (!currentDeleteUrl) return;
+      form.action = currentDeleteUrl;
+      form.submit();
+    });
+  })();
+</script>
+
 {% endblock %}

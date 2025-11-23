@@ -16,7 +16,7 @@ from django.contrib.auth.mixins import (
 )
 from django.core.mail import EmailMessage
 from django.db.models import Q
-from django.http import FileResponse, Http404, HttpResponseRedirect
+from django.http import FileResponse, Http404, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
@@ -51,7 +51,7 @@ from .forms import (
     ReservationCancelForm,
     PaymentReviewForm,
     PaymentReviewForm,
-    PaymentReceiptUploadForm
+    PaymentReceiptForm
 )
 from .models import (
     Announcement,
@@ -67,6 +67,7 @@ from .models import (
     Reservation,
     Resident,
     Resource,
+    Notification
 )
 
 try:
@@ -302,26 +303,50 @@ class AnnouncementDetailView(LoginRequiredMixin, DetailView):
     context_object_name = "aviso"
 
 
-class AnnouncementCreateView(
-    LoginRequiredMixin, IsAnnouncementManagerMixin, CreateView
-):
+from django.contrib import messages
+
+class AnnouncementCreateView(PermissionRequiredMixin, CreateView):
     model = Announcement
     form_class = AnnouncementForm
     template_name = "core/announcement/announcement_form.html"
-    success_url = reverse_lazy("core:announcement_list")
+    permission_required = "core.add_announcement"
 
     def form_valid(self, form):
         form.instance.creado_por = self.request.user
-        return super().form_valid(form)
+
+        response = super().form_valid(form)
+
+        messages.success(
+            self.request,
+            "Aviso publicado con éxito. Los vecinos ya pueden ver el nuevo aviso publicado.",
+            extra_tags="popup_announcement_created",
+        )
+
+        return response
+
+    def get_success_url(self):
+        return reverse("core:announcement_list")
 
 
-class AnnouncementUpdateView(
-    LoginRequiredMixin, IsAnnouncementManagerMixin, UpdateView
-):
+
+
+class AnnouncementUpdateView(PermissionRequiredMixin, UpdateView):
+    permission_required = "core.change_announcement"
     model = Announcement
     form_class = AnnouncementForm
     template_name = "core/announcement/announcement_form.html"
+
+    # A dónde volver después de guardar
     success_url = reverse_lazy("core:announcement_list")
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(
+            self.request,
+            "Cambios guardados con éxito.",
+            extra_tags="popup_announcement_updated",
+        )
+        return response
 
 class AnnouncementDeleteView(
     LoginRequiredMixin, IsAnnouncementManagerMixin, DeleteView
@@ -351,9 +376,14 @@ class MeetingCreateView(
 ):
     permission_required = "core.add_meeting"
     model = Meeting
-    form_class = MeetingForm  # 👈 antes usaba fields = [...]
+    form_class = MeetingForm
     template_name = "core/meeting_form.html"
     success_url = reverse_lazy("core:meeting_list")
+
+    def form_valid(self, form):
+        # Guardamos quién creó la reunión
+        form.instance.creado_por = self.request.user
+        return super().form_valid(form)
 
 
 class MeetingUpdateView(
@@ -490,16 +520,39 @@ class PaymentListAdminView(
         )
 
         return ctx
+    
+@xframe_options_exempt
+def payment_receipt_preview(request, pk):
+    """
+    Vista simple que se embebe en un <iframe> para ver el comprobante.
+    No envía cabecera X-Frame-Options para que no se bloquee.
+    """
+    payment = get_object_or_404(Payment, pk=pk)
 
-class MyPaymentsView(LoginRequiredMixin, ListView):
+    return render(
+        request,
+        "core/payment/payment_receipt_preview.html",
+        {"payment": payment},
+    )
+
+class MyPaymentsView(NavItemsMixin, LoginRequiredMixin, ListView):
     template_name = "core/payment/payment_list_mine.html"
     context_object_name = "payments"
 
     def get_queryset(self):
-        return Payment.objects.filter(
-            resident=self.request.user,
-            status=Payment.STATUS_PENDING,
-        ).order_by("-created_at")
+        user = self.request.user
+        return (
+            Payment.objects
+            .filter(
+                resident=user,
+                status__in=[
+                    Payment.STATUS_PENDING,
+                    Payment.STATUS_PENDING_REVIEW,
+                ],
+            )
+            .select_related("reservation", "fee")
+            .order_by("-created_at")
+        )
 
 
 class PaymentCreateForResidentView(NavItemsMixin, LoginRequiredMixin, FormView):
@@ -557,54 +610,61 @@ class PaymentReviewAdminView(PermissionRequiredMixin, UpdateView):
     permission_required = "core.change_payment"
     model = Payment
     form_class = PaymentReviewForm
-    template_name = "core/payment/review.html"  # <-- carpeta + archivo correcto
+    template_name = "core/payment/review.html"
 
     def get_queryset(self):
-        # Si quieres ver todos los pagos:
         return Payment.objects.all()
-        # (más adelante se puede filtrar por estado si quieres)
 
     def form_valid(self, form):
+        from django.utils import timezone
+
         payment = form.save(commit=False)
+        previous_status = Payment.objects.get(pk=payment.pk).status
 
-        # Si lo marcan como pagado:
+        payment.reviewed_by = self.request.user
+        payment.reviewed_at = timezone.now()
+
+        # --- CASO 1: APROBADO (Pagado) ---
         if payment.status == Payment.STATUS_PAID:
-            # Método helper del modelo (si lo tienes)
-            if hasattr(payment, "mark_as_paid"):
-                payment.mark_as_paid(
-                    review_comment=form.cleaned_data.get("review_comment", ""),
-                    staff_user=self.request.user,
-                )
-            else:
-                # Versión explícita por si no tienes mark_as_paid
-                from django.utils import timezone
-
-                payment.review_comment = form.cleaned_data.get("review_comment", "")
-                payment.reviewed_by = self.request.user
-                payment.reviewed_at = timezone.now()
+            if payment.paid_at is None:
                 payment.paid_at = timezone.now()
-                payment.save(
-                    update_fields=[
-                        "status",
-                        "review_comment",
-                        "reviewed_by",
-                        "reviewed_at",
-                        "paid_at",
-                    ]
-                )
-        else:
-            # Cualquier otro estado (pending, pending_review, cancelled)
-            payment.review_comment = form.cleaned_data.get("review_comment", "")
-            if not payment.reviewed_by:
-                from django.utils import timezone
 
-                payment.reviewed_by = self.request.user
-                payment.reviewed_at = timezone.now()
-            payment.save(
-                update_fields=["status", "review_comment", "reviewed_by", "reviewed_at"]
+            payment.save()
+
+            Notification.objects.create(
+                user=payment.resident,
+                type=Notification.TYPE_PAYMENT,
+                message="Tu pago fue aprobado. Ya puedes hacer otra reserva.",
+                url=reverse("core:my_payments"),
+                is_important=False,
             )
 
-        messages.success(self.request, "Pago actualizado correctamente.")
+        # --- CASO 2: NO APROBADO (rechazado) ---
+        else:
+            if previous_status == Payment.STATUS_PENDING_REVIEW:
+                payment.status = Payment.STATUS_PENDING
+                payment.receipt_file = None
+                payment.receipt_uploaded_at = None
+
+                payment.save()
+
+                Notification.objects.create(
+                    user=payment.resident,
+                    type=Notification.TYPE_PAYMENT,
+                    message=(
+                        "Tu pago fue rechazado. Intenta nuevamente subiendo un nuevo comprobante."
+                    ),
+                    url=reverse("core:my_payments"),
+                    is_important=False,
+                )
+            else:
+                payment.save()
+
+        messages.success(
+            self.request,
+            "Pago actualizado correctamente.",
+            extra_tags="popup_payment_updated",
+        )
         return redirect("core:payment_list_admin")
 
 
@@ -618,37 +678,49 @@ class PaymentDeleteAdminView(LoginRequiredMixin, PermissionRequiredMixin, Delete
     
 class PaymentReceiptUploadView(LoginRequiredMixin, UpdateView):
     model = Payment
-    form_class = PaymentReceiptUploadForm
+    form_class = PaymentReceiptForm
     template_name = "core/payment/payment_receipt_form.html"
 
     def get_queryset(self):
-        # Solo permitir subir comprobante de pagos PENDIENTES del usuario
-        return Payment.objects.filter(
-            resident=self.request.user,
-            status=Payment.STATUS_PENDING,
-        )
+        # Por seguridad, solo puede subir comprobante el dueño del pago
+        return Payment.objects.filter(resident=self.request.user)
 
     def form_valid(self, form):
-        obj = form.save(commit=False)
-        obj.receipt_uploaded_at = timezone.now()
-        obj.status = Payment.STATUS_PENDING_REVIEW  # 👈 importante
-        obj.save()
+        # Aseguramos que venga archivo, y si no, mostramos error
+        receipt = form.cleaned_data.get("receipt_file")
+        if not receipt:
+            form.add_error("receipt_file", "Debes subir el comprobante.")
+            return self.form_invalid(form)
 
+        payment = form.save(commit=False)
+
+        payment.status = Payment.STATUS_PENDING_REVIEW
+        payment.receipt_uploaded_at = timezone.now()
+
+        payment.save(
+            update_fields=[
+                "receipt_file",
+                "status",
+                "receipt_uploaded_at",
+            ]
+        )
+
+        # Mensaje + tag especial para el pop-up
         messages.success(
             self.request,
-            "Comprobante subido correctamente. El tesorero revisará tu pago.",
+            "Comprobante subido con éxito, ahora debes esperar a que se valide tu pago para hacer otra reserva.",
+            extra_tags="popup_receipt_uploaded",
         )
+
         return redirect("core:my_payments")
     
 class PaymentReviewView(PermissionRequiredMixin, UpdateView):
     permission_required = "core.change_payment"
     model = Payment
     form_class = PaymentReviewForm
-    # usamos el template que está en la carpeta payment
     template_name = "core/payment/review.html"
 
     def get_queryset(self):
-        # aquí ves todos los pagos; si quieres filtrar por estado, lo haces acá
         return Payment.objects.all()
 
     def form_valid(self, form):
@@ -656,27 +728,60 @@ class PaymentReviewView(PermissionRequiredMixin, UpdateView):
 
         payment = form.save(commit=False)
 
+        # estado anterior en BD (para saber si venía de pending_review)
+        previous_status = Payment.objects.get(pk=payment.pk).status
+
         # registrar quién revisó y cuándo
         payment.reviewed_by = self.request.user
         payment.reviewed_at = timezone.now()
 
-        # si lo marcan como pagado y no tenía fecha de pago, la seteamos
-        if payment.status == Payment.STATUS_PAID and payment.paid_at is None:
-            payment.paid_at = timezone.now()
-        # si prefieres que al marcarlo como pendiente se borre la fecha de pago:
-        # elif payment.status != Payment.STATUS_PAID:
-        #     payment.paid_at = None
+        # --- CASO 1: APROBADO (Pagado) ---
+        if payment.status == Payment.STATUS_PAID:
+            if payment.paid_at is None:
+                payment.paid_at = timezone.now()
 
-        payment.save(update_fields=[
-            "status",
-            "review_comment",
-            "reviewed_by",
-            "reviewed_at",
-            "paid_at",
-        ])
+            payment.save()
 
-        messages.success(self.request, "Pago actualizado correctamente.")
+            # Notificación al vecino: pago aprobado
+            Notification.objects.create(
+                user=payment.resident,
+                type=Notification.TYPE_PAYMENT,
+                message="Tu pago fue aprobado. Ya puedes hacer otra reserva.",
+                url=reverse("core:my_payments"),
+                is_important=False,
+            )
+
+        # --- CASO 2: NO APROBADO (rechazado) ---
+        else:
+            if previous_status == Payment.STATUS_PENDING_REVIEW:
+                payment.status = Payment.STATUS_PENDING
+                payment.receipt_file = None
+                payment.receipt_uploaded_at = None
+
+                payment.save()
+
+                # Notificación al vecino: pago rechazado
+                Notification.objects.create(
+                    user=payment.resident,
+                    type=Notification.TYPE_PAYMENT,
+                    message=(
+                        "Tu pago fue rechazado. Intenta nuevamente subiendo un nuevo comprobante."
+                    ),
+                    url=reverse("core:my_payments"),
+                    is_important=False,
+                )
+            else:
+                payment.save()
+
+        
+        messages.success(
+            self.request,
+            "Pago actualizado correctamente.",
+            extra_tags="popup_payment_updated",
+        )
         return redirect("core:payment_list_admin")
+
+
     
 # Pagos – vista para que los perfiles de gestión suban su propio comprobante
 class MyPaymentsForStaffView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -864,6 +969,7 @@ class PresidentResidentManageView(
         messages.success(
             request,
             f"Acción aplicada sobre «{vecino.nombre}»: cuenta {decision_label}.",
+            extra_tags="popup_resident_updated", 
         )
         return redirect("core:president_residents")
 
@@ -1263,7 +1369,15 @@ class CertificateResidencePreviewView(NavItemsMixin, LoginRequiredMixin, View):
             messages.warning(request, "Primero debes completar el formulario del certificado.")
             return redirect("core:cert_residence")
 
-        return render(request, self.template_name, {"data": data})
+        # ⬇️ Leemos y limpiamos la flag de pop-up desde sesión
+        show_email_modal = request.session.pop("show_cert_email_modal", False)
+
+        contexto = {
+            "data": data,
+            "show_email_modal": show_email_modal,
+        }
+        return render(request, self.template_name, contexto)
+
 
 @method_decorator(xframe_options_exempt, name="dispatch")
 class CertificateResidencePdfView(LoginRequiredMixin, View):
@@ -1344,7 +1458,6 @@ class CertificateResidenceSendEmailView(LoginRequiredMixin, View):
             or request.user.username
         )
 
-        # Cuerpo del correo (texto plano)
         cuerpo = (
             f"Estimado/a {nombre_saludo},\n\n"
             "Adjuntamos en este correo su Certificado de Residencia emitido por la Junta "
@@ -1373,16 +1486,18 @@ class CertificateResidenceSendEmailView(LoginRequiredMixin, View):
                 "application/pdf",
             )
             email.send(fail_silently=False)
-            messages.success(request, "Enviamos el certificado a tu correo.")
+
+            # 👇 SIN messages.success. En su lugar redirigimos con ?email_sent=1
+            url = reverse("core:cert_residence_preview")
+            return HttpResponseRedirect(f"{url}?email_sent=1")
+
         except Exception as e:
             print("ERROR enviando certificado:", e)
             messages.warning(
                 request,
                 "Hubo un problema al enviar el correo con el certificado.",
             )
-
-        return redirect("core:cert_residence_preview")
-
+            return redirect("core:cert_residence_preview")
 
 
 # ---------------------------
@@ -1620,7 +1735,17 @@ class SalvoconductoPreviewView(NavItemsMixin, LoginRequiredMixin, View):
         if not data:
             messages.warning(request, "Primero debes completar el formulario del salvoconducto.")
             return redirect("core:cert_salvoconducto")
-        return render(request, self.template_name, {"data": data})
+
+        # ⬇️ Flag para mostrar el pop-up después de enviar correo
+        show_email_modal = request.session.pop("show_salvo_email_modal", False)
+
+        contexto = {
+            "data": data,
+            "show_email_modal": show_email_modal,
+        }
+        return render(request, self.template_name, contexto)
+
+
 
 
 @method_decorator(xframe_options_exempt, name="dispatch")
@@ -1716,11 +1841,11 @@ class SalvoconductoSendEmailView(LoginRequiredMixin, View):
             "Adjuntamos en este correo su Salvoconducto de Mudanza emitido por la "
             "Junta de Vecinos UT.\n\n"
             "Resumen de los datos registrados:\n"
-            f" - Nombre completo    : {data.get('nombre')}\n"
-            f" - RUT                : {data.get('rut')}\n"
-            f" - Domicilio de origen: {data.get('domicilio_origen')}\n"
+            f" - Nombre completo     : {data.get('nombre')}\n"
+            f" - RUT                 : {data.get('rut')}\n"
+            f" - Domicilio de origen : {data.get('domicilio_origen')}\n"
             f" - Domicilio de destino: {data.get('domicilio_destino')}\n"
-            f" - Fecha de mudanza   : {fecha_mudanza_str}\n\n"
+            f" - Fecha de mudanza    : {fecha_mudanza_str}\n\n"
             "Este salvoconducto se emite para fines de control y traslado, y puede "
             "ser presentado ante la autoridad competente cuando sea requerido.\n\n"
             "Le recomendamos revisar que la información indicada sea correcta antes "
@@ -1742,16 +1867,18 @@ class SalvoconductoSendEmailView(LoginRequiredMixin, View):
                 "application/pdf",
             )
             email.send(fail_silently=False)
-            messages.success(request, "Enviamos el salvoconducto a tu correo.")
+
+            # 👇 Redirigimos con el flag para el modal
+            url = reverse("core:cert_salvoconducto_preview")
+            return HttpResponseRedirect(f"{url}?email_sent=1")
+
         except Exception as e:
             print("ERROR enviando salvoconducto:", e)
             messages.warning(
                 request,
                 "Hubo un problema al enviar el correo con el salvoconducto.",
             )
-
-        return redirect("core:cert_salvoconducto_preview")
-
+            return redirect("core:cert_salvoconducto_preview")
 
 
 # ------------------------------------------------
@@ -1779,20 +1906,36 @@ class IncidentListMineView(NavItemsMixin, LoginRequiredMixin, ListView):
         return qs.order_by("-created_at")
 
 
-class IncidentCreateView(NavItemsMixin, LoginRequiredMixin, CreateView):
-    """
-    Vecino: formulario simplificado.
-    """
+from django.contrib import messages
+# ... el resto de imports que ya tienes ...
 
+
+class IncidentCreateView(
+    NavItemsMixin, LoginRequiredMixin, PermissionRequiredMixin, CreateView
+):
+    permission_required = "core.add_incident"
     model = Incident
-    form_class = IncidentResidentForm
     template_name = "core/incidents/form_resident.html"
+    fields = ["categoria", "titulo", "descripcion", "foto"]  # o tu form_class si usas formulario
+
     success_url = reverse_lazy("core:incident_mine")
 
     def form_valid(self, form):
+        # Guardar quién reportó la incidencia
         form.instance.reportado_por = self.request.user
-        messages.success(self.request, "Incidencia reportada. ¡Gracias por avisar!")
-        return super().form_valid(form)
+
+        # Guardar la incidencia normalmente
+        response = super().form_valid(form)
+
+        # Mensaje para el pop-up (nota: usamos una tag especial)
+        messages.success(
+            self.request,
+            "Incidencia publicada con éxito. Los demás usuarios ya pueden ver tu incidencia reportada.",
+            extra_tags="popup_incident_created",
+        )
+
+        return response
+
 
 
 class IncidentListAdminView(
@@ -1931,10 +2074,8 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
     def get_queryset(self):
         user = self.request.user
 
-        # Base: traemos recurso y usuario para evitar queries extra
         qs = Reservation.objects.select_related("resource", "requested_by")
 
-        # Usuarios de gestión (ven TODAS las reservas)
         grupos_gestion = ["Delegado", "Tesorero", "Secretario", "Presidente"]
         es_gestion = (
             user.is_superuser or user.groups.filter(name__in=grupos_gestion).exists()
@@ -1943,7 +2084,6 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
         if es_gestion:
             return qs.order_by("-start_at")
 
-        # Vecino (u otro rol no gestión): solo ve sus reservas
         return qs.filter(requested_by=user).order_by("-start_at")
 
     def get_context_data(self, **kwargs):
@@ -1952,10 +2092,20 @@ class MyReservationsListView(NavItemsMixin, LoginRequiredMixin, ListView):
         ctx["estado"] = self.request.GET.get("estado", "")
         ctx["recurso_selected"] = self.request.GET.get("recurso", "")
 
-        # NUEVO: solo Presidente y Tesorero ven el motivo de cancelación
+        # Solo Presidente y Tesorero ven el motivo de cancelación
         u = self.request.user
         groups = set(u.groups.values_list("name", flat=True))
         ctx["show_cancel_reason"] = "Presidente" in groups or "Tesorero" in groups
+
+        # Datos para el pop-up (vienen por querystring)
+        if self.request.GET.get("created") == "1":
+            date_str = self.request.GET.get("date")
+            time_str = self.request.GET.get("time")
+            if date_str and time_str:
+                ctx["created_reservation"] = {
+                    "date": date_str,
+                    "time": time_str,
+                }
 
         return ctx
 
@@ -1964,19 +2114,12 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
     form_class = ReservationForm
     template_name = "core/reservations/form.html"
 
-    # -----------------------------
-    # 1) Leer el tipo desde la URL
-    # -----------------------------
     def get_tipo_actual(self):
-        """
-        Devuelve el tipo actual según GET/POST:
-        'cancha_futbol', 'cancha_basquet', 'cancha_padel' o 'salon'.
-        """
         tipo = self.request.GET.get("tipo") or self.request.POST.get("tipo")
         validos = {"cancha_futbol", "cancha_basquet", "cancha_padel", "salon"}
         if tipo in validos:
             return tipo
-        return "cancha_futbol"  # por defecto
+        return "cancha_futbol"
 
     def get_initial(self):
         initial = super().get_initial()
@@ -1985,12 +2128,9 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        kwargs["request"] = self.request   # 👈 para que el form lea GET (?tipo, ?resource, ?start_date)
+        kwargs["request"] = self.request
         return kwargs
 
-    # -----------------------------
-    # 2) Crear reserva + Payment
-    # -----------------------------
     def form_valid(self, form):
         user = self.request.user
 
@@ -1998,11 +2138,11 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
         resident = Resident.objects.filter(user=user).first()
         if not resident:
             messages.error(self.request, "No se encontró tu ficha de vecino.")
-            return redirect("core:reservation_mine")
+            return HttpResponseRedirect(reverse("core:reservation_mine"))
 
         # 2.2 Bloquear si ya tiene una reserva con deuda pendiente
         tiene_deuda_reserva = Payment.objects.filter(
-            resident=user,                         # Payment.resident es AUTH_USER_MODEL
+            resident=user,
             origin=Payment.ORIGIN_RESERVATION,
             status=Payment.STATUS_PENDING,
         ).exists()
@@ -2010,25 +2150,31 @@ class ReservationCreateView(LoginRequiredMixin, CreateView):
         if tiene_deuda_reserva:
             messages.error(
                 self.request,
-                "Ya tienes una reserva pendiente. Debes pagar o cancelar esa "
-                "reserva antes de crear una nueva.",
+                (
+                    "Ya tienes una reserva pendiente. Debes pagar o cancelar esa "
+                    "reserva antes de crear una nueva."
+                ),
             )
-            return redirect("core:reservation_mine")
+            return HttpResponseRedirect(reverse("core:reservation_mine"))
 
-        # 2.3 Guardar la reserva asociada al usuario y al vecino
+        # 2.3 Guardar la reserva
         reservation = form.save(commit=False)
         reservation.requested_by = user
         reservation.resident = resident
         reservation.save()
 
-        # 2.4 Crear el pago pendiente por la reserva
+        # 2.4 Crear el pago pendiente
         Payment.create_for_reservation(reservation)
 
-        messages.success(self.request, "Reserva creada correctamente.")
-        return redirect("core:reservation_mine")
+        # 2.5 Redirigir a "Mis reservas" con fecha y hora para el pop-up
+        start_dt = reservation.start_at
+        date_str = start_dt.strftime("%d-%m-%Y")
+        time_str = start_dt.strftime("%H:%M")
 
-    def get_success_url(self):
-        return reverse_lazy("core:reservation_mine")
+        base_url = reverse("core:reservation_mine")
+        url = f"{base_url}?created=1&date={date_str}&time={time_str}"
+        return HttpResponseRedirect(url)
+
     
 class ReservationCancelView(LoginRequiredMixin, View):
     """
@@ -2179,6 +2325,7 @@ class InscriptionCreateView(CreateView):
         messages.success(
             self.request,
             "Tu solicitud fue enviada. La Junta revisará tu documento para validar tu domicilio.",
+            extra_tags="popup_inscription_public_sent",
         )
         return super().form_valid(form)
 
@@ -2204,21 +2351,63 @@ class InscriptionEvidenceManageView(PermissionRequiredMixin, UpdateView):
     def form_valid(self, form):
         obj: InscriptionEvidence = self.get_object()
         status = form.cleaned_data["status"]
-        role_code = form.cleaned_data.get("role") or None   # 👈 IMPORTANTE
+        role_code = form.cleaned_data.get("role") or None
         note = form.cleaned_data.get("note", "")
 
+        # --- LÓGICA DE NEGOCIO (igual que antes) ---
         if status == InscriptionEvidence.Status.APPROVED:
             obj.approve(user=self.request.user, note=note, role_code=role_code)
+
+            # Mensaje para popup "aprobado"
+            messages.success(
+                self.request,
+                "Usuario agregado con éxito. Se enviarán las credenciales del nuevo usuario al correo que indicó.",
+                extra_tags="popup_inscription_approved",
+            )
+
         elif status == InscriptionEvidence.Status.REJECTED:
             obj.reject(user=self.request.user, note=note)
+
+            # Mensaje para popup "rechazado"
+            messages.info(
+                self.request,
+                "Solicitud rechazada. Se enviará un correo al usuario notificando que su solicitud fue rechazada.",
+                extra_tags="popup_inscription_rejected",
+            )
+
         else:
+            # Lo dejamos como pendiente, pero igual registramos quién lo revisó
             obj.status = InscriptionEvidence.Status.PENDING
             obj.validated_by = self.request.user
             obj.validated_at = timezone.now()
             obj.note = note
             obj.save()
 
-        messages.success(self.request, "Inscripción actualizada.")
+            # Mensaje genérico para otros cambios
+            messages.success(
+                self.request,
+                "Inscripción actualizada correctamente.",
+                extra_tags="popup_inscription_updated",
+            )
+
+        # Volvemos al listado de inscripciones
         return redirect("core:insc_admin")
+    
+# ---------------------------------------------
+# Notificaciones: marcar como leídas al abrir
+# ---------------------------------------------
+class NotificationsMarkReadView(LoginRequiredMixin, View):
+    """
+    Marca como leídas todas las notificaciones del usuario actual.
+    Se usará vía AJAX al hacer click en la campana.
+    """
+
+    def post(self, request, *args, **kwargs):
+        Notification.objects.filter(
+            user=request.user,
+            is_read=False,
+        ).update(is_read=True)
+        return JsonResponse({"status": "ok"})
+
 
 

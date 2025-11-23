@@ -65,4 +65,80 @@
     </form>
   </div>
 </section>
+
+{# === Estilos del toast (igual que en inscripciones, posición ARRIBA) === #}
+<style>
+  .insc-toast {
+    position: fixed;
+    left: 50%;
+    top: 18px;
+    transform: translateX(-50%) translateY(-20px);
+    background: #2210beff;
+    color: #f9fafb;
+    padding: 0.6rem 1.4rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1300;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .insc-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+
+{# Toast específico de pagos, reutilizando la clase .insc-toast #}
+<div id="payment-toast" class="insc-toast"></div>
+
+<script>
+  (function () {
+    const form        = document.querySelector(".payment-review-form");
+    const statusField = document.getElementById("id_status");
+    const toastEl     = document.getElementById("payment-toast");
+
+    if (!form || !statusField || !toastEl) return;
+
+    function showToast(message, callback) {
+      toastEl.textContent = message;
+      toastEl.classList.add("is-visible");
+
+      setTimeout(function () {
+        toastEl.classList.remove("is-visible");
+        if (typeof callback === "function") {
+          callback();
+        }
+      }, 1100);
+    }
+
+    function handleSubmit(e) {
+      const value = statusField.value;
+      let message = null;
+
+      // Valores del modelo Payment: "paid", "cancelled", etc.
+      if (value === "paid") {
+        message = "Pago aprobado. Se notificará al vecino por correo.";
+      } else if (value === "cancelled") {
+        message = "Pago rechazado. Se notificará al vecino para subir un nuevo comprobante.";
+      }
+
+      // Si es pendiente / pendiente de revisión → submit normal
+      if (!message) {
+        return;
+      }
+
+      e.preventDefault();
+
+      showToast(message, function () {
+        form.removeEventListener("submit", handleSubmit);
+        form.submit();
+      });
+    }
+
+    form.addEventListener("submit", handleSubmit);
+  })();
+</script>
 {% endblock %}

@@ -116,6 +116,18 @@ urlpatterns = [
         views.PaymentReceiptUploadView.as_view(),
         name="payment_receipt_upload",
     ),
+        # Vecino sube comprobante
+    path(
+        "pagos/<int:pk>/subir-comprobante/",
+        PaymentReceiptUploadView.as_view(),
+        name="payment_upload_receipt",
+    ),
+    # Vista embebible para ver comprobante
+    path(
+        "pagos/admin/<int:pk>/comprobante/ver/",
+        views.payment_receipt_preview,
+        name="payment_receipt_preview",
+    ),
     # -----------------------------
     # 👑 Presidente: Gestión de vecinos
     # -----------------------------
@@ -288,6 +300,12 @@ urlpatterns = [
         "pagos/admin/<int:pk>/revisar/",
         PaymentReviewView.as_view(),
         name="payment_review",
+    ),
+    # Notificaciónes
+    path(
+        "notificaciones/marcar-leidas/",
+        views.NotificationsMarkReadView.as_view(),
+        name="notifications_mark_read",
     ),
 
 

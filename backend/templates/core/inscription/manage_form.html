@@ -19,11 +19,15 @@
     <section class="insc-manage-summary">
       <div class="insc-summary-row">
         <span class="insc-summary-label">Archivo:</span>
-        {# deja aquí el mismo link que ya tenías para ver el archivo #}
         <span class="insc-summary-value">
-          <a href="{{ object.file.url }}" target="_blank" rel="noopener">
+          {# Botón que abre el popup con el archivo #}
+          <button
+            type="button"
+            class="btn btn-outline btn-small js-insc-view-file"
+            data-file-url="{{ object.file.url }}"
+          >
             Ver archivo
-          </a>
+          </button>
         </span>
       </div>
 
@@ -74,4 +78,221 @@
     {% endif %}
   </div>
 </section>
+
+{# ================= POP-UP VER ARCHIVO (INSCRIPCIÓN) ================= #}
+<style>
+  .insc-file-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1200;
+  }
+
+  .insc-file-backdrop.is-visible {
+    display: flex;
+  }
+
+  .insc-file-dialog {
+    background: #ffffff;
+    border-radius: 22px;
+    padding: 1.2rem 1.4rem;
+    width: 96%;
+    max-width: 1400px;
+    max-height: 92vh;
+    box-shadow: 0 22px 55px rgba(15, 23, 42, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .insc-file-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .insc-file-title {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .insc-file-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #6b7280;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+  }
+
+  .insc-file-close:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  /* Contenedor del archivo dentro del popup */
+  .insc-file-body {
+    flex: 1;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    background: #111827;
+
+    /* altura grande del área útil */
+    height: 70vh;
+    max-height: 86vh;
+
+    /* centramos el contenido (la imagen) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Imagen dentro del popup */
+  .insc-file-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* === Toast de inscripciones, ARRIBA === */
+  .insc-toast {
+    position: fixed;
+    left: 50%;
+    top: 18px;
+    transform: translateX(-50%) translateY(-20px);
+    background: #2210beff;
+    color: #f9fafb;
+    padding: 0.6rem 1.4rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1300;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+  }
+
+  .insc-toast.is-visible {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+
+<div id="insc-file-backdrop" class="insc-file-backdrop">
+  <div class="insc-file-dialog">
+    <div class="insc-file-header">
+      <div class="insc-file-title">
+        Archivo de inscripción
+      </div>
+      <button type="button" id="insc-file-close" class="insc-file-close">
+        Cerrar
+      </button>
+    </div>
+
+    <div class="insc-file-body">
+      <img
+        id="insc-file-img"
+        class="insc-file-img"
+        src=""
+        alt="Archivo de inscripción"
+      >
+    </div>
+  </div>
+</div>
+
+<div id="insc-toast" class="insc-toast"></div>
+
+<script>
+  (function () {
+    // ---------- Popup "Ver archivo" ----------
+    const fileBackdrop = document.getElementById("insc-file-backdrop");
+    const fileImg      = document.getElementById("insc-file-img");
+    const fileCloseBtn = document.getElementById("insc-file-close");
+
+    if (fileBackdrop && fileImg) {
+      // Botón "Ver archivo"
+      document.querySelectorAll(".js-insc-view-file").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const url = this.getAttribute("data-file-url");
+          if (!url) return;
+
+          fileImg.src = url;
+          fileBackdrop.classList.add("is-visible");
+        });
+      });
+
+      function closeFilePopup() {
+        fileBackdrop.classList.remove("is-visible");
+        fileImg.src = "";
+      }
+
+      if (fileCloseBtn) {
+        fileCloseBtn.addEventListener("click", closeFilePopup);
+      }
+
+      fileBackdrop.addEventListener("click", function (e) {
+        if (e.target === fileBackdrop) {
+          closeFilePopup();
+        }
+      });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && fileBackdrop.classList.contains("is-visible")) {
+          closeFilePopup();
+        }
+      });
+    }
+
+    // ---------- Toast al guardar (aprobado / rechazado) ----------
+    const form        = document.querySelector(".insc-manage-form");
+    const statusField = document.getElementById("id_status");
+    const toastEl     = document.getElementById("insc-toast");
+
+    if (!form || !statusField || !toastEl) return;
+
+    function showToast(message, callback) {
+      toastEl.textContent = message;
+      toastEl.classList.add("is-visible");
+
+      // Mostrar ~1.1 segundos y luego enviar el form
+      setTimeout(function () {
+        toastEl.classList.remove("is-visible");
+        if (typeof callback === "function") {
+          callback();
+        }
+      }, 1100);
+    }
+
+    function handleSubmit(e) {
+      const value = statusField.value;
+      let message = null;
+
+      if (value === "APPROVED") {
+        message = "Usuario agregado con éxito. Se enviarán las credenciales al correo ingresado.";
+      } else if (value === "REJECTED") {
+        message = "Solicitud rechazada. Se notificará al usuario por correo.";
+      }
+
+      if (!message) {
+        return; // PENDING u otro → submit normal
+      }
+
+      e.preventDefault();
+
+      showToast(message, function () {
+        form.removeEventListener("submit", handleSubmit);
+        form.submit();
+      });
+    }
+
+    form.addEventListener("submit", handleSubmit);
+  })();
+</script>
 {% endblock %}

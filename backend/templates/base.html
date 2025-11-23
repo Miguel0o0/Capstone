@@ -11,6 +11,135 @@
   <link rel="stylesheet" href="{% static 'css/main.css' %}">
   <link rel="stylesheet" href="{% static 'css/components.css' %}">
   <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
+
+  <style>
+  /* ---- Estilos básicos de la campana y dropdown ---- */
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .notif-wrapper {
+    position: relative;
+  }
+
+  .notif-bell-btn {
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .notif-bell-circle {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background-color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12);
+    color: #222222; /* color del trazo del ícono (currentColor) */
+  }
+
+  .notif-bell-icon {
+    width: 22px;
+    height: 22px;
+  }
+
+  .notif-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background-color: #e02424;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .notif-dropdown {
+    position: absolute;
+    right: 0;
+    margin-top: 0.75rem;
+    width: 600px;
+    max-height: 600px;
+    background-color: #ffffff;
+    border-radius: 0.9rem; /* un poco más redondeado */
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.16);
+    overflow: hidden;
+    z-index: 40;
+  }
+
+  .notif-dropdown.hidden {
+    display: none;
+  }
+
+  .notif-dropdown-header {
+    padding: 1rem 1.25rem;   /* más padding */
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .notif-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 340px;
+    overflow-y: auto;
+  }
+
+  .notif-item-link {
+    display: block;
+    padding: 0.9rem 1.25rem; /* más espacio */
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .notif-item-link:hover {
+    background-color: #f5f5f5;
+  }
+
+  .notif-item-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
+  .notif-item-summary {
+    font-size: 0.82rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }
+
+  .notif-empty {
+    padding: 1rem 1.25rem;
+    font-size: 0.85rem;
+    color: #6b7280;
+  }
+
+  .notif-chip-important {
+    display: inline-block;
+    margin-right: 0.35rem;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background-color: #fee2e2;
+    color: #b91c1c;
+    text-transform: uppercase;
+  }
+  </style>
+
   {% block extra_head %}{% endblock %}
 </head>
 <body>
@@ -41,10 +170,104 @@
       <!-- Acciones a la derecha -->
       <div class="nav-actions">
         {% if request.user.is_authenticated %}
+
+          <!-- Campana de notificaciones -->
+          <div class="notif-wrapper">
+            <button
+              type="button"
+              id="notif-bell"
+              class="notif-bell-btn"
+              aria-label="Notificaciones"
+            >
+              <span class="notif-bell-circle">
+                <!-- Icono de campana (SVG) -->
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  class="notif-bell-icon"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M14.857 17.657A2.999 2.999 0 0 1 12 19.5a2.999 2.999 0 0 1-2.857-1.843M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9z"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+
+                {% if notifications_unread_count %}
+                  <span class="notif-badge">
+                    {{ notifications_unread_count }}
+                  </span>
+                {% endif %}
+              </span>
+            </button>
+
+            <!-- Pop-up / dropdown de notificaciones -->
+            <div id="notif-dropdown" class="notif-dropdown hidden">
+              <div class="notif-dropdown-header">
+                Notificaciones
+              </div>
+
+              {% if notifications_recent %}
+                <ul class="notif-list">
+                  {% for n in notifications_recent %}
+                    <li class="notif-item">
+                      {% if n.url %}
+                        <a href="{{ n.url }}" class="notif-item-link">
+                      {% else %}
+                        <div class="notif-item-link">
+                      {% endif %}
+                          <div class="notif-item-title">
+                            {% if n.type == "announcement" %}
+                              Se ha publicado un nuevo aviso
+                            {% elif n.type == "incident" %}
+                              Se ha registrado una nueva incidencia
+                            {% elif n.type == "meeting" %}
+                              Se ha programado una nueva reunión
+                            {% elif n.type == "payment" %}
+                              {% if n.is_important %}
+                                <span class="notif-chip-important">IMPORTANTE</span>
+                              {% endif %}
+                              Nuevo pago pendiente de revisión
+                            {% elif n.type == "subscription" %}
+                              {% if n.is_important %}
+                                <span class="notif-chip-important">IMPORTANTE</span>
+                              {% endif %}
+                              Nueva solicitud de inscripción
+                            {% else %}
+                              Notificación
+                            {% endif %}
+                          </div>
+                          {% if n.message %}
+                            <div class="notif-item-summary">
+                              {{ n.message|truncatechars:80 }}
+                            </div>
+                          {% endif %}
+                      {% if n.url %}
+                        </a>
+                      {% else %}
+                        </div>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <div class="notif-empty">
+                  No tienes notificaciones nuevas.
+                </div>
+              {% endif %}
+            </div> <!-- /notif-dropdown -->
+          </div> <!-- /notif-wrapper -->
+
+          <!-- Botón Cerrar sesión -->
           <form action="{% url 'logout' %}" method="post" style="display:inline;">
             {% csrf_token %}
             <button type="submit" class="btn btn-outline">Cerrar sesión</button>
           </form>
+
         {% else %}
           <a class="btn btn-outline" href="{% url 'core:insc_create' %}">Quiero unirme</a>
           <a class="btn btn-primary" href="{% url 'login' %}">Iniciar sesión</a>
@@ -52,12 +275,16 @@
       </div>
     </nav>
 
+    {# ---- MENSAJES FLASH (ocultando los de pop-ups) ---- #}
     {% if messages %}
       <div class="messages" style="margin:.5rem 1rem;">
         {% for m in messages %}
-          <div class="msg {{ m.tags }}" style="padding:.4rem .6rem; border:1px solid #cfe3ff; background:#f3f8ff; margin-bottom:.3rem;">
-            {{ m }}
-          </div>
+          {# Ocultamos los mensajes usados solo para pop-ups #}
+          {% if "popup_incident_created" not in m.tags and "popup_receipt_uploaded" not in m.tags and "popup_announcement_created" not in m.tags and "popup_announcement_updated" not in m.tags and "popup_inscription_approved" not in m.tags and "popup_inscription_rejected" not in m.tags and "popup_inscription_updated" not in m.tags and "popup_payment_updated" not in m.tags and "popup_resident_updated" not in m.tags   and "popup_inscription_public_sent" not in m.tags%}
+            <div class="msg {{ m.tags }}" style="padding:.4rem .6rem; border:1px solid #cfe3ff; background:#f3f8ff; margin-bottom:.3rem;">
+              {{ m }}
+            </div>
+          {% endif %}
         {% endfor %}
       </div>
     {% endif %}
@@ -76,15 +303,15 @@
           <h3 class="footer-brand-title">Junta de Vecinos UT</h3>
           <p class="footer-brand-text">
             Espacio de participación y apoyo para vecinas y vecinos de la comunidad.
-            Aquí podrás mantenerte informado, gestionar tus reservas y mantener al dia.
+            Aquí podrás mantenerte informado, gestionar tus reservas y mantener al día.
+          </p>
         </div>
       </div>
 
       <!-- Columna centro: mapa -->
       <div class="footer-map">
-        <!-- Reemplaza el SRC por el embed real que te entregue Google Maps -->
         <iframe
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1663.3896888261488!2d-70.63664633730734!3d-33.50711671620544!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9662dabd13744667%3A0xb25ac57d8ab7fa80!2sDiego%20de%20Meza%205431%2C%208960425%20San%20Joaqu%C3%ADn%2C%20Regi%C3%B3n%20Metropolitana!5e0!3m2!1ses!2scl!4v1763415701685!5m2!1ses!2scl" 
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1663.3896888261488!2d-70.63664633730734!3d-33.50711671620544!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x9662dabd13744667%3A0xb25ac57d8ab7fa80!2sDiego%20de%20Meza%205431%2C%208960425%20San%20Joaqu%C3%ADn%2C%20Regi%C3%B3n%20Metropolitana!5e0!3m2!1ses!2scl!4v1763415701685!5m2!1ses!2scl"
           width="360"
           height="220"
           style="border:0;"
@@ -108,6 +335,75 @@
       © {% now "Y" %} Junta de Vecinos UT
     </div>
   </footer>
+
+  <script>
+    (function () {
+      const bell = document.getElementById("notif-bell");
+      const dropdown = document.getElementById("notif-dropdown");
+
+      if (!bell || !dropdown) return;
+
+      // Helper para obtener el CSRF desde la cookie
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== "") {
+          const cookies = document.cookie.split(";");
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + "=")) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+
+      const csrftoken = getCookie("csrftoken");
+      let alreadyMarked = false;  // para no spamear el endpoint
+
+      // Abrir/cerrar al hacer click en la campana
+      bell.addEventListener("click", function (e) {
+        e.stopPropagation();
+        dropdown.classList.toggle("hidden");
+
+        // Si se acaba de abrir y aún no hemos marcado como leídas
+        if (!dropdown.classList.contains("hidden") && !alreadyMarked) {
+          fetch("{% url 'core:notifications_mark_read' %}", {
+            method: "POST",
+            headers: {
+              "X-CSRFToken": csrftoken,
+              "X-Requested-With": "XMLHttpRequest",
+            },
+          })
+          .then(function (resp) { return resp.json(); })
+          .then(function () {
+            alreadyMarked = true;
+            // Ocultar el badge rojo
+            const badge = document.querySelector(".notif-badge");
+            if (badge) {
+              badge.remove();
+            }
+          })
+          .catch(function (err) {
+            console.error("Error marcando notificaciones como leídas:", err);
+          });
+        }
+      });
+
+      // Cerrar al hacer click fuera
+      document.addEventListener("click", function () {
+        if (!dropdown.classList.contains("hidden")) {
+          dropdown.classList.add("hidden");
+        }
+      });
+
+      // Evitar que el click dentro del dropdown lo cierre
+      dropdown.addEventListener("click", function (e) {
+        e.stopPropagation();
+      });
+    })();
+  </script>
 
   {% block extra_body %}{% endblock %}
 </body>

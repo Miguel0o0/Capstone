@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.urls import reverse
 
+from .models import Notification
+
 
 def site_settings(request):
     """
@@ -9,7 +11,7 @@ def site_settings(request):
     """
     return {
         "DEBUG": settings.DEBUG,
-        "SITE_NAME": "Junta UT",  # cambia el nombre si quieres
+        "SITE_NAME": "Junta UT",
     }
 
 
@@ -81,11 +83,11 @@ def nav_items(request):
                 }
             )
 
-        # "Subir documento" SOLO Presidente (y superuser)
-        if (u.is_superuser or is_president) and u.has_perm("core.add_document"):
-            items.append(
-                {"label": "Subir documento", "url": reverse("core:documents-create")}
-            )
+        # ⬇️ AQUÍ ESTABA el ítem "Subir documento", ya lo quitamos ⬇️
+        # if (u.is_superuser or is_president) and u.has_perm("core.add_document"):
+        #     items.append(
+        #         {"label": "Subir documento", "url": reverse("core:documents-create")}
+        #     )
 
     # ---- Presidencia (gestión de vecinos)
     if (u.is_superuser or is_president) and u.has_perm("core.view_resident"):
@@ -94,3 +96,39 @@ def nav_items(request):
         )
 
     return {"nav_items": items}
+
+
+def notifications(request):
+    if not request.user.is_authenticated:
+        return {
+            "notifications_unread_count": 0,
+            "notifications_recent": [],
+        }
+
+    from .models import Notification
+
+    base_qs = (
+        Notification.objects
+        .filter(user=request.user, is_read=False)
+        .order_by("-created_at")
+    )
+
+    unread_count = base_qs.count()
+    recent_qs = list(base_qs[:10])
+
+    notifications_recent = []
+
+    for n in recent_qs:
+        notifications_recent.append(
+            {
+                "type": n.type,
+                "message": n.message,
+                "url": n.url or "#",
+                "is_important": getattr(n, "is_important", False),
+            }
+        )
+
+    return {
+        "notifications_unread_count": unread_count,
+        "notifications_recent": notifications_recent,
+    }

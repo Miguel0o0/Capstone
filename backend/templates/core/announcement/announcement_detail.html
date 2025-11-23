@@ -4,6 +4,55 @@
 {% block title %}Aviso: {{ aviso.titulo }}{% endblock %}
 
 {% block content %}
+
+{# --- POP-UP para cambios guardados (edición de aviso) --- #}
+{% if messages %}
+  {% for m in messages %}
+    {% if "popup_announcement_updated" in m.tags %}
+      <div id="announcement-popup-backdrop" style="
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      ">
+        <div style="
+          background: #ffffff;
+          border-radius: 1.25rem;
+          padding: 1.75rem 2rem;
+          max-width: 440px;
+          width: 90%;
+          text-align: center;
+          box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+        ">
+          <h2 style="font-size: 1.1rem; margin-bottom: .5rem;">
+            Cambios guardados correctamente
+          </h2>
+          <p style="font-size:.9rem; color:#4b5563; margin-bottom:1.25rem;">
+            {{ m }}
+          </p>
+          <button type="button"
+                  onclick="document.getElementById('announcement-popup-backdrop').style.display='none';"
+                  style="
+                    padding:.55rem 1.4rem;
+                    border-radius:999px;
+                    border:none;
+                    background:#2563eb;
+                    color:#ffffff;
+                    font-size:.9rem;
+                    font-weight:600;
+                    cursor:pointer;
+                  ">
+            Entendido
+          </button>
+        </div>
+      </div>
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
 <div class="announcement-detail-page">
   <div class="card announcement-detail-card">
     <header style="margin-bottom: 1.5rem;">
@@ -32,7 +81,8 @@
       {{ aviso.cuerpo|linebreaks }}
     </article>
 
-    <div class="announcement-detail-actions">
+    <div class="announcement-detail-actions"
+         style="margin-top:1.75rem; display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap;">
       <a href="{% url 'core:announcement_list' %}"
          class="btn btn-outline announcement-detail-btn">
         Volver a los avisos
@@ -46,12 +96,13 @@
       {% endif %}
 
       {% if perms.core.delete_announcement %}
-        <form method="post"
+        <form id="announcement-delete-form"
+              method="post"
               action="{% url 'core:announcement_delete' aviso.pk %}">
           {% csrf_token %}
-          <button type="submit"
-                  class="btn btn-danger announcement-detail-btn"
-                  onclick="return confirm('¿Seguro que deseas eliminar este aviso?');">
+          <button type="button"
+                  id="open-delete-modal"
+                  class="btn btn-danger announcement-detail-btn">
             Eliminar aviso
           </button>
         </form>
@@ -59,4 +110,82 @@
     </div>
   </div>
 </div>
+
+{# --- Modal de confirmación para eliminar aviso --- #}
+<div id="announcement-delete-modal" style="
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,0.45);
+  z-index:60;
+  align-items:center;
+  justify-content:center;
+">
+  <div style="
+    background:#ffffff;
+    border-radius:1.25rem;
+    padding:1.75rem 2rem;
+    max-width:420px;
+    width:90%;
+    text-align:center;
+    box-shadow:0 25px 60px rgba(15,23,42,0.35);
+  ">
+    <h2 style="font-size:1.05rem; margin-bottom:.5rem;">
+      ¿Seguro que deseas eliminar este aviso?
+    </h2>
+    <p style="font-size:.9rem; color:#4b5563; margin-bottom:1.25rem;">
+      Esta acción no se puede deshacer.
+    </p>
+    <div style="display:flex; gap:.75rem; justify-content:center;">
+      <button type="button"
+              id="cancel-delete"
+              class="btn btn-outline btn-small">
+        Cancelar
+      </button>
+      <button type="button"
+              id="confirm-delete"
+              class="btn btn-danger btn-small">
+        Eliminar aviso
+      </button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_body %}
+<script>
+  (function () {
+    const modal   = document.getElementById("announcement-delete-modal");
+    const openBtn = document.getElementById("open-delete-modal");
+    const cancel  = document.getElementById("cancel-delete");
+    const confirm = document.getElementById("confirm-delete");
+    const form    = document.getElementById("announcement-delete-form");
+
+    if (!modal || !openBtn || !cancel || !confirm || !form) return;
+
+    function openModal()  { modal.style.display = "flex"; }
+    function closeModal() { modal.style.display = "none"; }
+
+    openBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      openModal();
+    });
+
+    cancel.addEventListener("click", function () {
+      closeModal();
+    });
+
+    confirm.addEventListener("click", function () {
+      form.submit();
+    });
+
+    // Cerrar si hace click fuera de la tarjeta del modal
+    modal.addEventListener("click", function (e) {
+      if (e.target === modal) {
+        closeModal();
+      }
+    });
+  })();
+</script>
 {% endblock %}
