@@ -1,6 +1,11 @@
 from django.conf import settings
 from django.urls import reverse
 
+# Si prefieres evitar posibles imports circulares,
+# puedes mover el import de Notification dentro de la
+# función `notifications`, no hay problema.
+from .models import Notification
+
 
 def site_settings(request):
     """
@@ -9,7 +14,7 @@ def site_settings(request):
     """
     return {
         "DEBUG": settings.DEBUG,
-        "SITE_NAME": "Junta UT",  # cambia el nombre si quieres
+        "SITE_NAME": "Junta UT",
     }
 
 
@@ -94,3 +99,44 @@ def nav_items(request):
         )
 
     return {"nav_items": items}
+
+def notifications(request):
+    if not request.user.is_authenticated:
+        return {
+            "notifications_unread_count": 0,
+            "notifications_recent": [],
+        }
+
+    from .models import Notification
+
+    base_qs = (
+        Notification.objects
+        .filter(user=request.user, is_read=False)
+        .order_by("-created_at")
+    )
+
+    unread_count = base_qs.count()
+
+    # hasta 10 más recientes
+    recent_qs = list(base_qs[:10])
+
+    notifications_recent = []
+
+    for n in recent_qs:
+        notifications_recent.append(
+            {
+                "type": n.type,
+                "message": n.message,
+                "url": n.url or "#",
+                "is_important": getattr(n, "is_important", False),
+            }
+        )
+
+    return {
+        "notifications_unread_count": unread_count,
+        "notifications_recent": notifications_recent,
+    }
+
+
+
+

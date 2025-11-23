@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <title>Comprobante de pago</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #111827;
+      }
+      .wrapper {
+        width: 100%;
+        height: 100%;
+      }
+      .no-receipt {
+        color: #f9fafb;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      {% if payment.receipt_file %}
+        <embed
+          src="{{ payment.receipt_file.url }}"
+          type="application/pdf"
+          style="width:100%; height:100%; border:none;"
+        />
+      {% else %}
+        <div class="no-receipt">
+          Este pago no tiene comprobante cargado.
+        </div>
+      {% endif %}
+    </div>
+  </body>
+</html>

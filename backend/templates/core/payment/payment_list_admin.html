@@ -35,7 +35,6 @@
       {% endif %}
     </header>
 
-
     <!-- Filtro por período -->
     <section style="max-width: 520px; margin: 0 auto 1.75rem;">
       <div class="card">
@@ -101,11 +100,6 @@
               <div class="payment-admin-amount">
                 <span>${{ p.amount|floatformat:0 }}</span>
 
-                {% comment %}
-                  Mapear estado del pago a la pill de color:
-                  asumimos que los valores del modelo son:
-                  'pending', 'pending_review', 'paid', 'cancelled', etc.
-                {% endcomment %}
                 {% if p.status == 'paid' %}
                   <span class="payment-admin-status payment-admin-status--pagado">
                     Pagado
@@ -116,7 +110,7 @@
                   </span>
                 {% elif p.status == 'cancelled' %}
                   <span class="payment-admin-status payment-admin-status--pendiente">
-                    Anulado
+                    Rechazado
                   </span>
                 {% else %}
                   <span class="payment-admin-status payment-admin-status--pendiente">
@@ -138,34 +132,33 @@
 
             <div class="payment-admin-actions">
               {% if p.receipt_file %}
-                <a href="{{ p.receipt_file.url }}" target="_blank" class="btn btn-outline btn-small">
+                <button
+                  type="button"
+                  class="btn btn-outline btn-small payment-view-receipt-btn"
+                  data-receipt-url="{% url 'core:payment_receipt_preview' p.pk %}"
+                >
                   Ver comprobante
-                </a>
+                </button>
               {% else %}
                 <span style="font-size:.85rem; color:var(--color-muted);">
                   Sin comprobante cargado
                 </span>
               {% endif %}
 
-              {# Solo quienes puedan cambiar pagos ven "Validar" #}
               {% if perms.core.change_payment %}
                 <a href="{% url 'core:payment_review' p.pk %}" class="btn btn-primary btn-small">
                   Validar
                 </a>
               {% endif %}
 
-              {# Solo quienes puedan borrar pagos ven "Eliminar" #}
               {% if perms.core.delete_payment %}
-                <form method="post"
-                      action="{% url 'core:payment_delete_admin' p.pk %}"
-                      style="display:inline;">
-                  {% csrf_token %}
-                  <button type="submit"
-                          class="btn btn-danger btn-small"
-                          onclick="return confirm('¿Seguro que deseas eliminar este pago?');">
-                    Eliminar
-                  </button>
-                </form>
+                <button
+                  type="button"
+                  class="btn btn-danger btn-small js-open-payment-delete"
+                  data-delete-url="{% url 'core:payment_delete_admin' p.pk %}"
+                  data-payment-title="{{ p }}">
+                  Eliminar
+                </button>
               {% endif %}
             </div>
           </article>
@@ -177,4 +170,292 @@
       </p>
     {% endif %}
   </section>
+
+  {# ============= POPUP ELIMINAR PAGO ============= #}
+  <style>
+    .popup-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .popup-backdrop.is-open {
+      display: flex;
+    }
+
+    .popup-dialog {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 1.75rem 2rem;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.25);
+      text-align: center;
+    }
+
+    .popup-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+
+    .popup-text {
+      font-size: 0.9rem;
+      color: #4b5563;
+      margin-bottom: 1.2rem;
+    }
+
+    .popup-payment-name {
+      display: block;
+      margin-top: 0.25rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .popup-actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+
+    .popup-btn-secondary,
+    .popup-btn-danger {
+      border: none;
+      border-radius: 999px;
+      padding: 0.45rem 1.4rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .popup-btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .popup-btn-secondary:hover {
+      background: #d1d5db;
+    }
+
+    .popup-btn-danger {
+      background: #dc2626;
+      color: #ffffff;
+    }
+
+    .popup-btn-danger:hover {
+      background: #b91c1c;
+    }
+  </style>
+
+  <div id="payment-delete-backdrop" class="popup-backdrop">
+    <div class="popup-dialog">
+      <h2 class="popup-title">¿Seguro que deseas eliminar este pago?</h2>
+      <p class="popup-text">
+        Esta acción no se puede deshacer.
+        <span id="payment-delete-title" class="popup-payment-name"></span>
+      </p>
+      <div class="popup-actions">
+        <button type="button" id="payment-delete-cancel" class="popup-btn-secondary">
+          Cancelar
+        </button>
+        <button type="submit" form="payment-delete-form" class="popup-btn-danger">
+          Sí, eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <form id="payment-delete-form" method="post" style="display:none;">
+    {% csrf_token %}
+  </form>
+
+  <script>
+    (function () {
+      const backdrop   = document.getElementById("payment-delete-backdrop");
+      const titleSpan  = document.getElementById("payment-delete-title");
+      const cancelBtn  = document.getElementById("payment-delete-cancel");
+      const deleteForm = document.getElementById("payment-delete-form");
+      const deleteBtns = document.querySelectorAll(".js-open-payment-delete");
+
+      if (!backdrop || !deleteForm || deleteBtns.length === 0) return;
+
+      function openModal(url, title) {
+        deleteForm.action = url;
+        titleSpan.textContent = title || "";
+        backdrop.classList.add("is-open");
+      }
+
+      function closeModal() {
+        backdrop.classList.remove("is-open");
+      }
+
+      deleteBtns.forEach(function (btn) {
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          const url   = btn.dataset.deleteUrl;
+          const title = btn.dataset.paymentTitle;
+          openModal(url, title);
+        });
+      });
+
+      cancelBtn.addEventListener("click", function () {
+        closeModal();
+      });
+
+      backdrop.addEventListener("click", function (e) {
+        if (e.target === backdrop) {
+          closeModal();
+        }
+      });
+    })();
+  </script>
+  {# =========== FIN POPUP ELIMINAR PAGO =========== #}
+
+  {# ================= POP-UP VER COMPROBANTE ================= #}
+  <style>
+    .receipt-popup-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1200;
+    }
+
+    .receipt-popup-backdrop.is-visible {
+      display: flex;
+    }
+
+    .receipt-popup-dialog {
+      background: #ffffff;
+      border-radius: 22px;
+      padding: 1.2rem 1.4rem;
+      width: 96%;
+      max-width: 1280px;   /* más ancho */
+      height: 80vh;        /* altura fija grande */
+      max-height: 90vh;
+      box-shadow: 0 22px 55px rgba(15, 23, 42, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .receipt-popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .receipt-popup-title {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    .receipt-popup-close {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.9rem;
+      color: #6b7280;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+    }
+
+    .receipt-popup-close:hover {
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    .receipt-popup-body {
+      flex: 1;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+      background: #111827;
+    }
+
+    .receipt-popup-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #111827;
+      display: block;
+    }
+  </style>
+
+  <div id="receipt-popup-backdrop" class="receipt-popup-backdrop">
+    <div class="receipt-popup-dialog">
+      <div class="receipt-popup-header">
+        <div class="receipt-popup-title">
+          Comprobante de pago
+        </div>
+        <button type="button" id="receipt-popup-close" class="receipt-popup-close">
+          Cerrar
+        </button>
+      </div>
+
+      <div class="receipt-popup-body">
+        <iframe
+          id="receipt-popup-frame"
+          class="receipt-popup-frame"
+          src=""
+          title="Comprobante de pago"
+        ></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const backdrop = document.getElementById("receipt-popup-backdrop");
+      const frame = document.getElementById("receipt-popup-frame");
+      const closeBtn = document.getElementById("receipt-popup-close");
+
+      if (!backdrop || !frame) return;
+
+      // Abrir modal al hacer clic en "Ver comprobante"
+      document.querySelectorAll(".payment-view-receipt-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          const url = this.getAttribute("data-receipt-url");
+          if (!url) return;
+
+          frame.src = url;
+          backdrop.classList.add("is-visible");
+        });
+      });
+
+      function closePopup() {
+        backdrop.classList.remove("is-visible");
+        frame.src = "";
+      }
+
+      if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+          closePopup();
+        });
+      }
+
+      // Cerrar al hacer click fuera del cuadro
+      backdrop.addEventListener("click", function (e) {
+        if (e.target === backdrop) {
+          closePopup();
+        }
+      });
+
+      // Esc para cerrar
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && backdrop.classList.contains("is-visible")) {
+          closePopup();
+        }
+      });
+    })();
+  </script>
+  {# =============== FIN POP-UP VER COMPROBANTE ============= #}
+
 {% endblock %}

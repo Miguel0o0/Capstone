@@ -28,3 +28,86 @@
   </div>
 </div>
 {% endblock %}
+
+{% block extra_body %}
+  {{ block.super }}
+
+  {# --- Modal centrado de "correo enviado" --- #}
+  <div id="cert-email-modal" class="modal-overlay" style="display:none;">
+    <div class="modal-card">
+      <h2 class="modal-title">Correo enviado correctamente</h2>
+      <p>
+        Se ha enviado con éxito tu <strong>certificado de residencia</strong> a tu correo electrónico.
+      </p>
+      <p style="margin-top:.5rem;">
+        Si no lo ves en tu bandeja de entrada en unos minutos, revisa también la carpeta
+        <strong>SPAM</strong> o <strong>Correo no deseado</strong>.
+      </p>
+
+      <div class="modal-actions">
+        <button class="btn btn-primary js-close-cert-email-modal">
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    /* Reutiliza el mismo estilo de modal que en reservas */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.28);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .modal-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 1.75rem 2.25rem;
+      max-width: 540px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.16);
+    }
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: .75rem;
+    }
+    .modal-actions {
+      margin-top: 1.5rem;
+      text-align: right;
+    }
+  </style>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const params = new URLSearchParams(window.location.search);
+      const shouldShow = params.get("email_sent") === "1";
+      const modal = document.getElementById("cert-email-modal");
+      const closeBtns = document.querySelectorAll(".js-close-cert-email-modal");
+
+      if (shouldShow && modal) {
+        modal.style.display = "flex";
+      }
+
+      closeBtns.forEach((btn) => {
+        btn.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          if (modal) {
+            modal.style.display = "none";
+          }
+          // Quitar el parámetro de la URL sin recargar
+          if (window.history && window.history.replaceState) {
+            params.delete("email_sent");
+            const newUrl =
+              window.location.pathname +
+              (params.toString() ? "?" + params.toString() : "");
+            window.history.replaceState({}, "", newUrl);
+          }
+        });
+      });
+    });
+  </script>
+{% endblock %}

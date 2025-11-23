@@ -11,7 +11,7 @@
     Reserva: {{ object.reservation.resource.nombre }}
     ({{ object.reservation.start_at|date:"d/m/Y H:i" }})<br>
     Monto: ${{ object.amount|floatformat:0|localize }} — Estado: {{ object.get_status_display }}<br>
-    Destinatario: Ricardo Arjona<br>
+    Destinatario: Patricio Soto<br>
     Rut: 11.111.111-1
   </p>
 
@@ -25,7 +25,26 @@
              style="display:block; font-weight:600; margin-bottom:.25rem;">
         Comprobante de transferencia
       </label>
-      {{ form.receipt_file }}
+
+      {# --- Botón personalizado para seleccionar archivo --- #}
+      <div class="file-upload-wrapper">
+        <input
+          type="file"
+          name="{{ form.receipt_file.name }}"
+          id="{{ form.receipt_file.id_for_label }}"
+          accept=".pdf,.jpg,.jpeg,.png"
+          required
+          class="file-upload-input"
+        >
+        <button type="button"
+                class="btn btn-outline file-upload-button"
+                onclick="document.getElementById('{{ form.receipt_file.id_for_label }}').click();">
+          Seleccionar archivo
+        </button>
+        <span id="file-upload-filename" class="file-upload-filename">
+          Ningún archivo seleccionado
+        </span>
+      </div>
 
       {% if form.receipt_file.errors %}
         <div style="color:#b91c1c; font-size:.85rem; margin-top:.25rem;">
@@ -36,6 +55,10 @@
       {% if form.receipt_file.help_text %}
         <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
           {{ form.receipt_file.help_text }}
+        </p>
+      {% else %}
+        <p style="color:#6b7280; font-size:.8rem; margin-top:.25rem;">
+          Sube el comprobante en formato PDF, JPG o PNG.
         </p>
       {% endif %}
     </div>
@@ -50,4 +73,48 @@
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block extra_body %}
+<style>
+  .file-upload-wrapper {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    flex-wrap: wrap;
+  }
+
+  /* Input real oculto */
+  .file-upload-input {
+    display: none;
+  }
+
+  /* Botón “Seleccionar archivo” usando tus estilos base */
+  .file-upload-button {
+    cursor: pointer;
+    min-width: 150px;
+  }
+
+  /* Texto con el nombre del archivo */
+  .file-upload-filename {
+    font-size: .85rem;
+    color: #6b7280;
+  }
+</style>
+
+<script>
+  (function () {
+    var input = document.getElementById("{{ form.receipt_file.id_for_label }}");
+    var nameSpan = document.getElementById("file-upload-filename");
+    if (!input || !nameSpan) return;
+
+    input.addEventListener("change", function () {
+      if (input.files && input.files.length > 0) {
+        nameSpan.textContent = input.files[0].name;
+      } else {
+        nameSpan.textContent = "Ningún archivo seleccionado";
+      }
+    });
+  })();
+</script>
 {% endblock %}

@@ -97,4 +97,90 @@
     </tbody>
   </table>
 </div>
+
+{# ---------- POP-UP RESERVA CREADA ---------- #}
+{% if created_reservation %}
+<div id="reservation-created-modal"
+     style="
+       position: fixed;
+       inset: 0;
+       display: flex;
+       align-items: center;
+       justify-content: center;
+       background: rgba(15, 23, 42, 0.45);
+       z-index: 999;
+     ">
+  <div style="
+        background: #ffffff;
+        border-radius: 16px;
+        max-width: 560px;
+        width: 90%;
+        padding: 24px 28px 20px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.35);
+      ">
+    <h2 style="font-size: 20px; font-weight: 600; margin-bottom: 12px;">
+      Reserva creada correctamente
+    </h2>
+
+    <p style="margin-bottom: 8px;">
+      Tu reserva para el día 
+      <strong>{{ created_reservation.date }}</strong> 
+      a las 
+      <strong>{{ created_reservation.time }}</strong> 
+      fue registrada con éxito.
+    </p>
+    <p style="margin-bottom: 8px;">
+      La deuda asociada a esta reserva aparecerá en tu sección 
+      <strong>“Mis pagos”</strong>.
+    </p>
+    <p style="margin-bottom: 16px;">
+      Recuerda que mientras mantengas esa deuda sin pagar, 
+      <strong>no podrás crear nuevas reservas</strong>.
+    </p>
+
+    <div style="display:flex; justify-content:flex-end; margin-top: 10px;">
+      <button type="button"
+              id="reservation-created-close"
+              class="btn btn-primary">
+        Entendido
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.addEventListener('load', function () {
+    var overlay = document.getElementById('reservation-created-modal');
+    var btnClose = document.getElementById('reservation-created-close');
+    if (!overlay) return;
+
+    function closeModal() {
+      overlay.style.display = 'none';
+
+      // quitamos los parámetros de la URL para que no se repita el pop-up
+      try {
+        var url = new URL(window.location.href);
+        url.searchParams.delete('created');
+        url.searchParams.delete('date');
+        url.searchParams.delete('time');
+        window.history.replaceState({}, document.title, url.toString());
+      } catch (e) {
+        // fallback simple
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+
+    if (btnClose) {
+      btnClose.addEventListener('click', closeModal);
+    }
+
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) {
+        closeModal();
+      }
+    });
+  });
+</script>
+{% endif %}
+
 {% endblock %}
