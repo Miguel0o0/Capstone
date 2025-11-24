@@ -62,3 +62,35 @@ SECURE_BROWSER_XSS_FILTER = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 X_FRAME_OPTIONS = "DENY"
+
+# Configuración de EMAIL para producción (Render)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "1") == "1"
+
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER or "no-reply@junta-ut.example"
+)
+
+# ==========================================
+# Email en producción: SendGrid + Anymail
+# ==========================================
+
+# Backend de email: usa la API HTTP de SendGrid (no SMTP)
+EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
+
+# Configuración de Anymail para SendGrid
+ANYMAIL = {
+    "SENDGRID_API_KEY": os.getenv("SENDGRID_API_KEY"),
+}
+
+# Remitente por defecto (debe estar verificado en SendGrid)
+DEFAULT_FROM_EMAIL = os.getenv(
+    "Junta UT <utjunta@gmail.com>",  # o el que hayas verificado
+)
