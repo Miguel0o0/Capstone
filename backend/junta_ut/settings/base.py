@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -148,11 +149,17 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # En dev usamos una carpeta local de estáticos (no confundir con STATIC_ROOT)
-STATIC_URL = "static/"
+#STATIC_URL = "static/"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",  # ahora apunta a backend/static
 ]
+
+# Carpeta que usará collectstatic en producción (Render)    
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Storage de WhiteNoise para servir estáticos comprimidos en prod
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 X_FRAME_OPTIONS = "SAMEORIGIN"
 
