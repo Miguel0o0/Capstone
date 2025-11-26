@@ -1200,10 +1200,10 @@ def build_certificate_residence_pdf(data):
 
     text_obj.moveCursor(0, 15)  # Espacio
 
-    text_obj.textLine(f"  Nombre Completo : {data['nombre']}")
-    text_obj.textLine(f"  Rut             : {data['rut']}")
-    text_obj.textLine(f"  Domicilio       : {data['direccion']}")
-    text_obj.textLine(f"  Comuna          : {data['comuna']}")
+    text_obj.textLine(f"  Nombre Completo: {data['nombre']}")
+    text_obj.textLine(f"  Rut: {data['rut']}")
+    text_obj.textLine(f"  Domicilio: {data['direccion']}")
+    text_obj.textLine(f"  Comuna: {data['comuna']}")
 
     text_obj.moveCursor(0, 20)
 
@@ -1577,18 +1577,18 @@ def build_salvoconducto_pdf(data):
     text.moveCursor(0, 15)
 
     # Datos del vecino ordenados
-    text.textLine(f"  Nombre Completo   : {data['nombre']}")
-    text.textLine(f"  Rut                           : {data['rut']}")
-    text.textLine(f"  Comuna           : {data['comuna']}")
+    text.textLine(f"  Nombre Completo: {data['nombre']}")
+    text.textLine(f"  Rut: {data['rut']}")
+    text.textLine(f"  Comuna: {data['comuna']}")
     text.moveCursor(0, 15)
 
     # Domicilios y fecha de mudanza
     text.textLine("Que la persona individualizada precedentemente ha informado su traslado")
     text.textLine("de domicilio, en los siguientes términos:")
     text.moveCursor(0, 15)
-    text.textLine(f"  Domicilio Origen    : {data['domicilio_origen']}")
-    text.textLine(f"  Domicilio Destino   : {data['domicilio_destino']}")
-    text.textLine(f"  Fecha Mudanza       : {fecha_mudanza_str}")
+    text.textLine(f"  Domicilio Origen: {data['domicilio_origen']}")
+    text.textLine(f"  Domicilio Destino: {data['domicilio_destino']}")
+    text.textLine(f"  Fecha Mudanza: {fecha_mudanza_str}")
 
     text.moveCursor(0, 20)
 
@@ -1841,11 +1841,11 @@ class SalvoconductoSendEmailView(LoginRequiredMixin, View):
             "Adjuntamos en este correo su Salvoconducto de Mudanza emitido por la "
             "Junta de Vecinos UT.\n\n"
             "Resumen de los datos registrados:\n"
-            f" - Nombre completo     : {data.get('nombre')}\n"
-            f" - RUT                 : {data.get('rut')}\n"
-            f" - Domicilio de origen : {data.get('domicilio_origen')}\n"
+            f" - Nombre completo: {data.get('nombre')}\n"
+            f" - RUT: {data.get('rut')}\n"
+            f" - Domicilio de origen: {data.get('domicilio_origen')}\n"
             f" - Domicilio de destino: {data.get('domicilio_destino')}\n"
-            f" - Fecha de mudanza    : {fecha_mudanza_str}\n\n"
+            f" - Fecha de mudanza: {fecha_mudanza_str}\n\n"
             "Este salvoconducto se emite para fines de control y traslado, y puede "
             "ser presentado ante la autoridad competente cuando sea requerido.\n\n"
             "Le recomendamos revisar que la información indicada sea correcta antes "

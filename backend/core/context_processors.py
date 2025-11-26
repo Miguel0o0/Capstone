@@ -63,7 +63,7 @@ def nav_items(request):
     # ---- Resto de secciones comunes
     items.append({"label": "Incidencias", "url": reverse("core:incident_mine")})
     items.append({"label": "Reservas", "url": reverse("core:reservation_mine")})
-    items.append({"label": "Documentos", "url": reverse("core:documents-list")})
+    items.append({"label": "Certificados", "url": reverse("core:documents-list")})
 
     # ---- Inscripciones
     # SOLO Admin / Secretario / Presidente / superuser ven el panel de inscripciones.
