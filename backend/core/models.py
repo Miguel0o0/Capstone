@@ -746,6 +746,7 @@ class InscriptionEvidence(models.Model):
     )
 
     status = models.CharField(
+        "Estado",
         max_length=10,
         choices=Status.choices,
         default=Status.PENDING,
@@ -774,7 +775,10 @@ class InscriptionEvidence(models.Model):
         related_name="insc_validations",
     )
     validated_at = models.DateTimeField(null=True, blank=True)
-    note = models.TextField(blank=True)
+    note = models.TextField(
+        "Nota",
+        blank=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
