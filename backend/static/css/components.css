@@ -653,6 +653,7 @@
   padding: 2.2rem 2.5rem;
   max-width: 960px;
   width: 100%;
+  text-align: center;              /* 👈 centra todo el texto dentro de la tarjeta */
 }
 
 .home-map-card h2 {
@@ -662,8 +663,9 @@
 
 .home-map-text {
   color: #6b7280;
-  margin-bottom: 1.4rem;
+  margin: 0 auto 1.4rem;          /* 👈 centra el bloque de párrafo */
   max-width: 720px;
+  text-align: center;             /* 👈 texto centrado */
 }
 
 #junta-map {
@@ -677,6 +679,7 @@
 .home-map-caption {
   font-size: 0.875rem;
   color: #6b7280;
+  text-align: center;             /* 👈 leyenda centrada */
 }
 
 .navbar-actions {
